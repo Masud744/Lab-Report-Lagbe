@@ -136,3 +136,4 @@ class LaTeXGenerator:
             final_path = os.path.join(output_dir, output_filename)
             shutil.copy(pdf_path, final_path)
             return final_path
+

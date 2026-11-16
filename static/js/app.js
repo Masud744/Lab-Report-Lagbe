@@ -85,6 +85,7 @@ function collectFormData() {
 
     return {
         groq_api_key: form.querySelector('#groqApiKey').value.trim(),
+        rapidapi_key: form.querySelector('#rapidapiKey').value.trim(),
         student_name: form.querySelector('#studentName').value.trim(),
         student_id: form.querySelector('#studentId').value.trim(),
         session: form.querySelector('#session').value.trim(),
@@ -256,3 +257,4 @@ document.getElementById('reportForm').addEventListener('submit', async (e) => {
         btn.querySelector('.btn-loading').style.display = 'none';
     }
 });
+
