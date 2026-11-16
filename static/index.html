@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Report Lagbe!</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-inner">
+                <div class="logo-group">
+                    <img src="/images/logo.png" alt="Logo" class="logo-img">
+                    <div>
+                        <h1 class="logo-text">Lab Report Lagbe<span class="accent">!</span></h1>
+                        <p class="tagline">AI-Powered Lab Report Generator</p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <form id="reportForm" class="form">
+
+                <!-- API Key -->
+                <section class="card">
+                    <div class="card-header">
+                        <span class="card-icon">🔑</span>
+                        <h2>API Key</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="field">
+                            <label for="groqApiKey">Groq API Key</label>
+                            <input type="password" id="groqApiKey" name="groq_api_key" placeholder="gsk_..." required>
+                            <small>Get free key from <a href="https://console.groq.com/keys" target="_blank">console.groq.com</a></small>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Student Info -->
+                <section class="card">
+                    <div class="card-header">
+                        <span class="card-icon">🎓</span>
+                        <h2>Student Info</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid-2">
+                            <div class="field">
+                                <label for="studentName">Full Name *</label>
+                                <input type="text" id="studentName" name="student_name" placeholder="Shahriar Alom Masud" required>
+                            </div>
+                            <div class="field">
+                                <label for="studentId">Student ID *</label>
+                                <input type="text" id="studentId" name="student_id" placeholder="2201032" required>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="session">Session</label>
+                            <input type="text" id="session" name="session" value="2022-2023" placeholder="2022-2023">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- University Info -->
+                <section class="card collapsible">
+                    <div class="card-header" onclick="toggleCard(this)">
+                        <span class="card-icon">🏫</span>
+                        <h2>University Info</h2>
+                        <span class="collapse-arrow">▸</span>
+                    </div>
+                    <div class="card-body collapsed">
+                        <div class="field">
+                            <label for="university">University Name</label>
+                            <input type="text" id="university" name="university" value="University of Frontier Technology, Bangladesh">
+                        </div>
+                        <div class="grid-2">
+                            <div class="field">
+                                <label for="universityShort">Short Form</label>
+                                <input type="text" id="universityShort" name="university_short" value="UFTB">
+                            </div>
+                            <div class="field">
+                                <label for="faculty">Faculty</label>
+                                <input type="text" id="faculty" name="faculty" value="Faculty of Cyber Physical System Engineering">
+                            </div>
+                        </div>
+                        <div class="grid-2">
+                            <div class="field">
+                                <label for="department">Department (Full)</label>
+                                <input type="text" id="department" name="department" value="Department of Internet of Things and Robotics Engineering (IRE)">
+                            </div>
+                            <div class="field">
+                                <label for="departmentShort">Dept Short</label>
+                                <input type="text" id="departmentShort" name="department_short" value="IRE">
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Course Info -->
+                <section class="card">
+                    <div class="card-header">
+                        <span class="card-icon">📚</span>
+                        <h2>Course Info</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid-2">
+                            <div class="field">
+                                <label for="courseCode">Course Code</label>
+                                <input type="text" id="courseCode" name="course_code" placeholder="IRE 460">
+                            </div>
+                            <div class="field">
+                                <label for="courseTitle">Course Title</label>
+                                <input type="text" id="courseTitle" name="course_title" placeholder="Mobile Platform for IoT Devices Sessional">
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Instructor Info -->
+                <section class="card">
+                    <div class="card-header">
+                        <span class="card-icon">👨‍🏫</span>
+                        <h2>Instructor Info</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid-2">
+                            <div class="field">
+                                <label for="instructorName">Instructor Name</label>
+                                <input type="text" id="instructorName" name="instructor_name" placeholder="Md. Rafiqul Islam">
+                            </div>
+                            <div class="field">
+                                <label for="instructorTitle">Designation</label>
+                                <input type="text" id="instructorTitle" name="instructor_title" value="Lecturer">
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Lab Info -->
+                <section class="card">
+                    <div class="card-header">
+                        <span class="card-icon">🧪</span>
+                        <h2>Lab Details</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid-3">
+                            <div class="field">
+                                <label for="labNumber">Lab Number</label>
+                                <input type="number" id="labNumber" name="lab_number" value="1" min="1" max="20">
+                            </div>
+                            <div class="field">
+                                <label for="labTitle">Lab Title</label>
+                                <input type="text" id="labTitle" name="lab_title" placeholder="Object-Oriented Programming">
+                            </div>
+                            <div class="field">
+                                <label for="language">Language</label>
+                                <select id="language" name="language">
+                                    <option value="python">Python</option>
+                                    <option value="dart">Dart</option>
+                                    <option value="c++">C++</option>
+                                    <option value="c">C</option>
+                                    <option value="java">Java</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="kotlin">Kotlin</option>
+                                    <option value="go">Go</option>
+                                    <option value="rust">Rust</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="labSubtitle">Lab Subtitle (optional)</label>
+                            <input type="text" id="labSubtitle" name="lab_subtitle" placeholder="e.g. Student Result, Course Registration...">
+                        </div>
+                        <div class="field">
+                            <label for="githubLink">GitHub Link (optional)</label>
+                            <input type="url" id="githubLink" name="github_link" placeholder="https://github.com/username/repo">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tasks -->
+                <section class="card">
+                    <div class="card-header">
+                        <span class="card-icon">📋</span>
+                        <h2>Tasks</h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="tasksContainer">
+                            <!-- task cards injected here -->
+                        </div>
+                        <button type="button" class="btn btn-add" onclick="addTask()">
+                            + Add Task
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Submit -->
+                <button type="submit" class="btn btn-generate" id="submitBtn">
+                    <span class="btn-text">🚀 Generate Lab Report</span>
+                    <span class="btn-loading" style="display:none">
+                        <span class="spinner"></span>
+                        <span id="progressText">Generating...</span>
+                    </span>
+                </button>
+
+            </form>
+        </main>
+
+        <!-- Progress Overlay -->
+        <div id="progressOverlay" class="overlay" style="display:none">
+            <div class="overlay-card">
+                <div class="spinner-large"></div>
+                <h3 id="overlayTitle">Generating Your Report...</h3>
+                <p id="overlayStatus">Sending request to AI...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar"></div>
+                </div>
+                <small id="overlayHint">This may take 30-60 seconds depending on the number of tasks.</small>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Made with ❤️ by <strong>Lab Report Lagbe!</strong> &mdash; Powered by Groq AI + Piston</p>
+        </footer>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
