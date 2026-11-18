@@ -151,19 +151,17 @@ button {
     gap: 8px;
     width: 100%;
     text-align: center;
-    padding: 4px 6px 18px;
+    padding: 4px 6px 16px;
     color: #FFFFFF;
 }
 
 .brand-logo-wrap {
     width: 100%;
-    background: rgba(255, 255, 255, 0.94);
-    border-radius: var(--radius-md);
-    padding: 10px 14px;
+    background: transparent;
+    padding: 2px 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
     transition: transform var(--t-fast);
 }
 
@@ -173,10 +171,11 @@ button {
 
 .brand-logo-img {
     width: 100%;
-    max-width: 152px;
+    max-width: 176px;
     height: auto;
     display: block;
     object-fit: contain;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.24));
 }
 
 .brand-pill {
