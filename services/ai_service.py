@@ -267,3 +267,138 @@ Return ONLY runnable {language} code. No markdown fences.
                 continue
 
         return "(Execution output simulated from code logic)"
+
+    def fix_code(self, code: str, error: str, language: str, task_title: str = "") -> str:
+        """Self-healing step: repair compiler or runtime errors using stderr."""
+        if not self.client:
+            return code
+
+        prompt = f"""The following {language} program for "{task_title or 'Lab Task'}" failed to compile or run.
+
+Broken Code:
+{code}
+
+Error Message:
+{error[:1200]}
+
+Fix the bug so the program compiles and runs cleanly with zero interactive stdin blocking (use realistic sample inputs if needed).
+Return ONLY the complete corrected {language} source code. Do NOT include markdown fences or explanations."""
+
+        models_to_try = [self.model] + [m for m in CANDIDATE_MODELS if m != self.model]
+        for model in models_to_try:
+            try:
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": f"You are an expert {language} debugger. Output ONLY raw fixed code."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.1,
+                    max_tokens=850,
+                )
+                fixed = re.sub(r"<think>[\s\S]*?</think>", "", response.choices[0].message.content, flags=re.IGNORECASE).strip()
+                if "```" in fixed:
+                    fence_match = re.search(r"```(?:\w+)?\n([\s\S]*?)```", fixed)
+                    fixed = fence_match.group(1).strip() if fence_match else fixed.replace("```", "").strip()
+                if fixed and len(fixed) > 10:
+                    return fixed
+            except Exception:
+                continue
+        return code
+
+    def parse_labsheet_text(self, text: str) -> dict:
+        """Extract structured lab metadata and tasks from raw lab manual text."""
+        if not self.client:
+            raise RuntimeError("Groq API key not configured.")
+
+        schema_prompt = f"""Extract structured programming lab report metadata from the following university lab sheet text.
+
+Lab Sheet Text:
+{text[:8000]}
+
+Return ONLY a valid raw JSON object with EXACTLY these keys:
+{{
+  "course_code": "e.g. IRE 404 or empty string if unknown",
+  "course_title": "e.g. Computer Graphics Sessional or empty string",
+  "lab_number": 1,
+  "lab_title": "Concise overall lab title",
+  "language": "lowercase programming language key from: python, c++, c, java, dart, javascript, typescript, sql, go, rust, kotlin, csharp, php, ruby, swift, r, bash, matlab, arduino (default python if unclear)",
+  "tasks": [
+    {{
+      "title": "Task title",
+      "description": "Clear concise summary of what this task asks",
+      "requirements": ["Requirement 1", "Requirement 2"]
+    }}
+  ]
+}}
+
+Rules:
+- Extract ALL distinct lab tasks/exercises listed in the sheet (at least 1).
+- Keep requirements crisp and actionable.
+- Return ONLY raw JSON without markdown fences."""
+
+        models_to_try = [self.model] + [m for m in CANDIDATE_MODELS if m != self.model]
+        last_err = None
+        for model in models_to_try:
+            try:
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": "You extract structured academic lab sheet data as strict raw JSON."},
+                        {"role": "user", "content": schema_prompt},
+                    ],
+                    temperature=0.1,
+                    max_tokens=850,
+                )
+                return _extract_json_object(response.choices[0].message.content.strip())
+            except Exception as e:
+                last_err = e
+                continue
+        raise RuntimeError(f"Failed to parse lab sheet text: {last_err}")
+
+    def parse_labsheet_image(self, image_data_url: str) -> dict:
+        """Extract structured lab metadata and tasks from a lab sheet screenshot/image using vision."""
+        if not self.client:
+            raise RuntimeError("Groq API key not configured.")
+
+        instruction = """Read this university lab manual / assignment image carefully and extract all lab details.
+Return ONLY a valid raw JSON object with EXACTLY these keys:
+{
+  "course_code": "e.g. IRE 404 or empty string if not visible",
+  "course_title": "Course name or empty string",
+  "lab_number": 1,
+  "lab_title": "Concise overall lab title",
+  "language": "lowercase language key from: python, c++, c, java, dart, javascript, typescript, sql, go, rust, kotlin, csharp, php, ruby, swift, r, bash, matlab, arduino (default python if unclear)",
+  "tasks": [
+    {
+      "title": "Task title",
+      "description": "Clear summary of what this task asks",
+      "requirements": ["Requirement 1", "Requirement 2"]
+    }
+  ]
+}
+Return ONLY raw JSON without markdown fences."""
+
+        vision_models = ["qwen/qwen3.8-27b"]
+        last_err = None
+        for model in vision_models:
+            try:
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": instruction},
+                                {"type": "image_url", "image_url": {"url": image_data_url}},
+                            ],
+                        }
+                    ],
+                    temperature=0.1,
+                    max_tokens=850,
+                )
+                return _extract_json_object(response.choices[0].message.content.strip())
+            except Exception as e:
+                last_err = e
+                continue
+        raise RuntimeError(f"Failed to parse lab sheet image: {last_err}")

@@ -11,6 +11,10 @@ An AI-powered, full-stack academic web workspace for programming lab reports. En
 - **Interactive Code Workspace**: Write and execute code directly inside the browser (local runtime for Python, C, C++, Java, Dart, JavaScript, Bash, plus Piston/Judge0/AI simulation fallback) and send verified code straight into a new lab report.
 - **22 Programming Languages**: Python, C++, C, Java, Dart, JavaScript, TypeScript, SQL, Go, Rust, Kotlin, C#, PHP, Ruby, Swift, R, Bash, MATLAB/Octave, Arduino (C++), Lua, Perl, and Scala.
 - **Publication-Grade LaTeX PDF**: Official UFTB crest (with optional custom university logo upload in Settings), TikZ double-border cover page, single-task and multi-task numbering, dual-column code listing for longer files, and 2x2 screenshot figure grids.
+- **Lab Sheet Auto-Fill**: Upload a teacher's lab manual PDF, question screenshot (PNG/JPG), or text file to automatically extract course metadata, lab title, language, tasks, and requirements into the form.
+- **Review & Edit Studio + Overleaf Export**: Inspect and refine AI-generated Problem Overview, Methodology points, Source Code, Output, Figure Captions, and Discussion before compiling the final PDF, and download an Overleaf-ready `.zip` bundle (`main.tex` + logo + figures) for any report.
+- **Self-Healing Code Execution**: Automatically detects compiler or runtime errors during local/sandboxed execution, feeds stderr back to Groq AI to repair the code, and re-executes to verify runnable output.
+- **Headless Matplotlib Plot Capture**: Automatically captures Python `matplotlib` charts (`Agg` backend) both in the live Code Workspace and inside Section 4 (Output Visualization) of generated PDFs.
 - **Smart Auto-Visualization**: Automatically generates 4-angle wireframe renders for 3D OpenGL cuboid tasks and 2D pixel coordinate grids for DDA / Bresenham / Midpoint Circle tasks when no screenshots are uploaded.
 - **Zero-Cost Stack**: Runs completely on free-tier infrastructure (Groq API + local/Docker LaTeX).
 

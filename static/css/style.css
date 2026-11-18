@@ -2047,3 +2047,222 @@ button {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ==========================================================================
+   v4.5 Upgrades: Lab Sheet Auto-Fill, Review Studio, Matplotlib Plots & TeX
+   ========================================================================== */
+
+.labsheet-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--bg-mint-soft);
+    border: 1.5px dashed #7BC8B6;
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    margin-bottom: 18px;
+    cursor: pointer;
+    transition: background-color var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
+}
+
+.labsheet-banner:hover,
+.labsheet-banner.dragover {
+    background: var(--bg-mint-hover);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.labsheet-banner.loading {
+    opacity: 0.78;
+    pointer-events: none;
+}
+
+.labsheet-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    background: #FFFFFF;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: var(--shadow-card);
+}
+
+.labsheet-copy {
+    flex: 1;
+    min-width: 0;
+}
+
+.labsheet-copy strong {
+    display: block;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.labsheet-copy small {
+    display: block;
+    font-size: 0.79rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.generate-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Workspace Matplotlib Plots Strip */
+.workspace-plots {
+    padding: 14px 16px;
+    background: var(--bg-subtle);
+    border-top: 1px solid var(--border-subtle);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.workspace-plots[hidden] {
+    display: none;
+}
+
+.workspace-plot-item {
+    background: #FFFFFF;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 8px;
+    text-align: center;
+}
+
+.workspace-plot-item img {
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    display: block;
+}
+
+.workspace-plot-item span {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-top: 6px;
+}
+
+/* Review & Edit Studio Modal */
+.review-modal-card {
+    background: var(--bg-canvas);
+    border-radius: var(--radius-xl);
+    width: 100%;
+    max-width: 980px;
+    height: 90dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: var(--shadow-float);
+}
+
+.review-modal-card .pdf-modal-header {
+    background: #FFFFFF;
+}
+
+.review-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.review-task-block {
+    background: #FFFFFF;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-card);
+}
+
+.review-task-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    flex-wrap: wrap;
+}
+
+.review-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.review-meth-row {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.review-figs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.review-fig-card {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 8px;
+}
+
+.review-fig-card img {
+    width: 100%;
+    height: 110px;
+    object-fit: contain;
+    background: #FFFFFF;
+    border-radius: 5px;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.tex-action-btn {
+    padding: 0 8px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--accent-soft);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: background-color var(--t-fast), color var(--t-fast);
+}
+
+.tex-action-btn:hover {
+    background: var(--primary);
+    color: #FFFFFF;
+}
+
+@media (max-width: 720px) {
+    .labsheet-banner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .review-meth-row {
+        grid-template-columns: 1fr;
+    }
+}

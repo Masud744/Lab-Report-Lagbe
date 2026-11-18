@@ -24,6 +24,7 @@ credentials.json
 # Runtime data and generated output
 data/
 output/*.pdf
+output/*.zip
 output/*.png
 output/*.jpg
 

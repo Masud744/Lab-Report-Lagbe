@@ -10,7 +10,9 @@ Supports:
 
 import os
 import re
+import json
 import time
+import base64
 import shutil
 import asyncio
 import tempfile
@@ -78,9 +80,52 @@ _NON_HEADLESS_PATTERNS = [
     r"\bturtle\b",
     r"\bPyQt\b",
     r"\bcv2\.imshow\b",
-    r"\bplt\.show\b",
     r"\bglutMainLoop\b",
 ]
+
+_MPL_BOOTSTRAP = """
+import os, json, runpy
+os.environ["MPLBACKEND"] = "Agg"
+_captured = []
+try:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as _plt
+
+    def _save_open_figs():
+        for num in list(_plt.get_fignums()):
+            if len(_captured) >= 4:
+                break
+            fig = _plt.figure(num)
+            idx = len(_captured) + 1
+            fname = f"captured_plot_{idx}.png"
+            title = ""
+            if getattr(fig, "_suptitle", None) and fig._suptitle.get_text().strip():
+                title = fig._suptitle.get_text().strip()
+            elif fig.axes:
+                for ax in fig.axes:
+                    t = ax.get_title().strip()
+                    if t:
+                        title = t
+                        break
+            fig.savefig(fname, dpi=160, bbox_inches="tight")
+            _captured.append({"file": fname, "caption": title or f"Generated Plot {idx}"})
+            _plt.close(fig)
+
+    _plt.show = lambda *a, **kw: _save_open_figs()
+except Exception:
+    _save_open_figs = lambda: None
+
+try:
+    runpy.run_path("main.py", run_name="__main__")
+finally:
+    try:
+        _save_open_figs()
+    except Exception:
+        pass
+    with open("captured_plots.json", "w", encoding="utf-8") as _f:
+        json.dump(_captured, _f)
+"""
 
 
 def _is_gui_or_interactive(code: str) -> bool:
@@ -146,11 +191,13 @@ class CodeRunner:
 
     def _execute_local(self, code: str, lang_key: str, stdin: str = "") -> dict | None:
         """Safely compile/run code locally inside an isolated temporary directory with strict timeout."""
-        timeout_sec = 5
+        uses_mpl = lang_key == "python" and bool(re.search(r"\b(matplotlib|pyplot|seaborn)\b", code))
+        timeout_sec = 10 if uses_mpl else 5
         try:
             with tempfile.TemporaryDirectory(prefix="lrg_run_") as tmpdir:
                 cmd = None
                 compile_cmd = None
+                run_env = os.environ.copy()
 
                 if lang_key == "python":
                     exe = shutil.which("python3")
@@ -159,7 +206,14 @@ class CodeRunner:
                     src = os.path.join(tmpdir, "main.py")
                     with open(src, "w", encoding="utf-8") as f:
                         f.write(code)
-                    cmd = [exe, "-I", src]
+                    if uses_mpl:
+                        run_env["MPLBACKEND"] = "Agg"
+                        boot = os.path.join(tmpdir, "_mpl_bootstrap.py")
+                        with open(boot, "w", encoding="utf-8") as f:
+                            f.write(_MPL_BOOTSTRAP)
+                        cmd = [exe, boot]
+                    else:
+                        cmd = [exe, "-I", src]
 
                 elif lang_key == "c":
                     exe = shutil.which("gcc")
@@ -246,6 +300,7 @@ class CodeRunner:
                 rproc = subprocess.run(
                     cmd,
                     cwd=tmpdir,
+                    env=run_env,
                     input=stdin.encode("utf-8") if stdin else b"",
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -254,18 +309,37 @@ class CodeRunner:
                 stdout = rproc.stdout.decode("utf-8", errors="replace").strip()
                 stderr = rproc.stderr.decode("utf-8", errors="replace").strip()
 
+                captured_images = []
+                meta_path = os.path.join(tmpdir, "captured_plots.json")
+                if uses_mpl and os.path.exists(meta_path):
+                    try:
+                        with open(meta_path, "r", encoding="utf-8") as mf:
+                            for entry in json.load(mf)[:4]:
+                                fpath = os.path.join(tmpdir, entry["file"])
+                                if os.path.exists(fpath):
+                                    with open(fpath, "rb") as imgf:
+                                        b64 = base64.b64encode(imgf.read()).decode("utf-8")
+                                    captured_images.append({
+                                        "data": f"data:image/png;base64,{b64}",
+                                        "caption": entry.get("caption", "Generated Plot"),
+                                    })
+                    except Exception:
+                        pass
+
                 if rproc.returncode != 0:
                     return {
                         "output": stdout,
                         "error": stderr or f"Exited with code {rproc.returncode}",
                         "success": False,
                         "engine": "local",
+                        "images": captured_images,
                     }
                 return {
-                    "output": stdout or stderr or "(Program finished with no console output)",
+                    "output": stdout or stderr or ("(Plot generated successfully)" if captured_images else "(Program finished with no console output)"),
                     "error": "",
                     "success": True,
                     "engine": "local",
+                    "images": captured_images,
                 }
         except subprocess.TimeoutExpired:
             return {

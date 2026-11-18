@@ -158,6 +158,26 @@ const TEMPLATES = [
             },
         ],
     },
+    {
+        id: "python-matplotlib",
+        title: "Algorithm Time Complexity Plot",
+        courseCode: "CSE 306",
+        courseTitle: "Algorithm Design & Analysis Sessional",
+        labNumber: 5,
+        language: "python",
+        summary: "Benchmark Bubble Sort vs Python Timsort across input sizes and auto-capture Matplotlib charts directly into your LaTeX PDF.",
+        tasks: [
+            {
+                title: "Empirical Time Complexity Comparison with Matplotlib",
+                description: "Write a Python program that benchmarks Bubble Sort against Python's built-in sorted() on arrays of sizes 100 to 800, prints timing tables, and plots execution time vs input size using Matplotlib.",
+                requirements: [
+                    "Implement Bubble Sort and time both algorithms using time.perf_counter()",
+                    "Measure execution times for n = 100, 200, 400, 600, 800",
+                    "Plot a labeled comparison graph using matplotlib.pyplot with title, grid, and legend",
+                ],
+            },
+        ],
+    },
 ];
 
 const WORKSPACE_SAMPLES = {
@@ -524,12 +544,13 @@ function renderReportRow(item, idx) {
             </button>
         `
         : `
-            <button type="button" class="action-icon-btn" title="Preview PDF" onclick="openPdfPreview('${item.id}', '${escapeAttr(item.title)}', '${escapeAttr(item.course_title || "")}')">
+            <button type="button" class="action-icon-btn" title="Preview PDF" onclick="openPdfPreview('${item.id}', '${escapeAttr(item.title)}', '${escapeAttr(item.course_title || "")}', ${Boolean(item.has_latex_zip)})">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M2.5 10C4.2 6.8 6.8 5.2 10 5.2C13.2 5.2 15.8 6.8 17.5 10C15.8 13.2 13.2 14.8 10 14.8C6.8 14.8 4.2 13.2 2.5 10Z" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="10" r="2.3" stroke="currentColor" stroke-width="1.6"/></svg>
             </button>
             <a class="action-icon-btn" title="Download PDF" href="/api/reports/${item.id}/file" download>
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 3.5V12.5M10 12.5L6.8 9.3M10 12.5L13.2 9.3M4 15.8H16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>
+            ${item.has_latex_zip ? `<a class="tex-action-btn" title="Download Overleaf LaTeX .zip" href="/api/reports/${item.id}/latex" download>TeX</a>` : ""}
             <button type="button" class="action-icon-btn danger" title="Delete Report" onclick="deleteReport('${item.id}')">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4.5 6H15.5M8 6V4H12V6M6.5 6V16H13.5V6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
@@ -619,10 +640,19 @@ async function deleteReport(id) {
 }
 
 // ─── PDF Preview Modal ───
-function openPdfPreview(reportId, title, sub) {
+function openPdfPreview(reportId, title, sub, hasLatexZip = false) {
     document.getElementById("pdfModalTitle").textContent = title || "Lab Report Preview";
     document.getElementById("pdfModalSub").textContent = sub || "Compiled LaTeX PDF";
     document.getElementById("pdfModalDownload").href = `/api/reports/${reportId}/file`;
+    const latexBtn = document.getElementById("pdfModalLatex");
+    const repMeta = state.reports.find((r) => r.id === reportId);
+    const showLatex = Boolean(hasLatexZip || repMeta?.has_latex_zip);
+    if (showLatex) {
+        latexBtn.href = `/api/reports/${reportId}/latex`;
+        latexBtn.hidden = false;
+    } else {
+        latexBtn.hidden = true;
+    }
     document.getElementById("pdfModalFrame").src = `/api/reports/${reportId}/file?inline=1`;
     document.getElementById("pdfPreviewModal").hidden = false;
 }
@@ -1089,6 +1119,7 @@ function setupFormSubmit() {
             statusEl.textContent = "PDF compiled successfully! Downloading...";
 
             const reportId = res.headers.get("X-Report-Id");
+            const hasLatexZip = res.headers.get("X-Has-Latex-Zip") === "true";
             const blob = await res.blob();
             const downloadUrl = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -1109,7 +1140,7 @@ function setupFormSubmit() {
             showToast("Lab report PDF compiled and downloaded!");
 
             if (reportId) {
-                openPdfPreview(reportId, payload.lab_title || `Lab Report ${payload.lab_number}`, payload.course_title);
+                openPdfPreview(reportId, payload.lab_title || `Lab Report ${payload.lab_number}`, payload.course_title, hasLatexZip);
             }
         } catch (err) {
             showToast(err.message, true);
@@ -1150,6 +1181,7 @@ async function runWorkspaceCode() {
     const language = document.getElementById("workspaceLang").value;
     const stdin = document.getElementById("workspaceStdin").value;
     const outEl = document.getElementById("workspaceOutput");
+    const plotsEl = document.getElementById("workspacePlots");
     const metaEl = document.getElementById("workspaceExecMeta");
     const runBtn = document.getElementById("runCodeBtn");
 
@@ -1163,6 +1195,8 @@ async function runWorkspaceCode() {
     metaEl.textContent = "Executing...";
     outEl.classList.remove("has-error");
     outEl.textContent = "Running code...";
+    plotsEl.hidden = true;
+    plotsEl.innerHTML = "";
 
     try {
         const cfg = loadSettings();
@@ -1176,8 +1210,18 @@ async function runWorkspaceCode() {
 
         if (data.success) {
             outEl.textContent = data.output || "(Program finished with no console output)";
-            metaEl.textContent = `${data.engine} • ${data.execution_ms}ms`;
+            const plotNote = data.images?.length ? ` • ${data.images.length} plot(s)` : "";
+            metaEl.textContent = `${data.engine} • ${data.execution_ms}ms${plotNote}`;
             metaEl.classList.remove("warn");
+            if (data.images && data.images.length) {
+                plotsEl.innerHTML = data.images.map((im) => `
+                    <div class="workspace-plot-item">
+                        <img src="${im.data}" alt="${escapeAttr(im.caption || "Plot")}">
+                        <span>${escapeHtml(im.caption || "Generated Plot")}</span>
+                    </div>
+                `).join("");
+                plotsEl.hidden = false;
+            }
         } else {
             outEl.classList.add("has-error");
             outEl.textContent = [data.error, data.output].filter(Boolean).join("\n\n");
@@ -1284,6 +1328,7 @@ function setupKeyboardShortcuts() {
         }
         if (e.key === "Escape") {
             closePdfModal();
+            closeReviewModal();
             document.getElementById("globalSearchResults").hidden = true;
             toggleNotifications(false);
             closeMobileSidebar();
@@ -1324,4 +1369,261 @@ function escapeHtml(str) {
 
 function escapeAttr(str) {
     return escapeHtml(str).replace(/'/g, "&#39;");
+}
+
+// ─── Lab Sheet Auto-Fill (PDF / Image / TXT) ───
+function handleLabSheetDrop(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove("dragover");
+    const file = event.dataTransfer.files && event.dataTransfer.files[0];
+    if (file) handleLabSheetFile(file);
+}
+
+async function handleLabSheetFile(file) {
+    if (!file) return;
+    const banner = document.getElementById("labsheetDropzone");
+    const titleEl = document.getElementById("labsheetTitle");
+    const statusEl = document.getElementById("labsheetStatus");
+
+    banner.classList.add("loading");
+    titleEl.textContent = `Parsing "${file.name}" with AI...`;
+    statusEl.textContent = "Extracting course info, lab title, tasks, and requirements...";
+
+    try {
+        const cfg = loadSettings();
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("groq_api_key", document.getElementById("groqApiKey").value.trim() || cfg.groqKey || "");
+
+        const res = await fetch("/api/parse-labsheet", {
+            method: "POST",
+            body: fd,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Could not parse lab sheet");
+
+        if (data.course_code) document.getElementById("courseCode").value = data.course_code;
+        if (data.course_title) document.getElementById("courseTitle").value = data.course_title;
+        if (data.lab_number) document.getElementById("labNumber").value = parseInt(data.lab_number, 10) || 1;
+        if (data.lab_title) document.getElementById("labTitle").value = data.lab_title;
+        if (data.language && LANG_META[data.language]) {
+            document.getElementById("language").value = data.language;
+        }
+
+        if (Array.isArray(data.tasks) && data.tasks.length) {
+            clearTasks();
+            data.tasks.forEach((t) => addTask({
+                title: t.title || "",
+                description: t.description || "",
+                requirements: Array.isArray(t.requirements) ? t.requirements : [],
+            }));
+        }
+
+        showToast(`Auto-filled ${data.tasks?.length || 1} task(s) from "${file.name}"!`);
+    } catch (err) {
+        showToast(err.message, true);
+    } finally {
+        banner.classList.remove("loading");
+        titleEl.textContent = "Auto-Fill from Lab Sheet (PDF, PNG, JPG, or TXT)";
+        statusEl.textContent = "Drop your teacher's lab manual PDF or question screenshot here to extract course info, tasks, and requirements automatically.";
+    }
+}
+
+// ─── Review & Edit Studio (Prepare -> Edit -> Compile) ───
+async function prepareAndReview() {
+    const payload = collectFormPayload();
+    if (!payload.student_name || !payload.student_id) {
+        showToast("Student name and ID are required.", true);
+        return;
+    }
+    if (!payload.tasks.length) {
+        showToast("Please add at least one lab task.", true);
+        return;
+    }
+
+    const overlay = document.getElementById("progressOverlay");
+    const titleEl = document.getElementById("overlayTitle");
+    const statusEl = document.getElementById("overlayStatus");
+    const bar = document.getElementById("progressBar");
+    const reviewBtn = document.getElementById("reviewBtn");
+
+    overlay.hidden = false;
+    reviewBtn.disabled = true;
+    titleEl.textContent = "Preparing Editable Report";
+    bar.style.width = "20%";
+    statusEl.textContent = "Generating methodology, source code, and running self-healing checks...";
+
+    const timer = setInterval(() => {
+        const cur = parseInt(bar.style.width, 10) || 20;
+        if (cur < 85) bar.style.width = `${cur + 15}%`;
+    }, 3000);
+
+    try {
+        const res = await fetch("/api/prepare", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Preparation failed");
+
+        state.preparedReport = data;
+        renderReviewModal(data);
+        document.getElementById("reviewModal").hidden = false;
+        showToast("Content ready! Review or edit anything before compiling.");
+    } catch (err) {
+        showToast(err.message, true);
+    } finally {
+        clearInterval(timer);
+        overlay.hidden = true;
+        titleEl.textContent = "Generating Your Lab Report";
+        reviewBtn.disabled = false;
+    }
+}
+
+function renderReviewModal(report) {
+    document.getElementById("reviewModalTitle").textContent = `Review: ${report.lab_title || `Lab Report ${report.lab_number}`}`;
+    document.getElementById("reviewModalSub").textContent = `${report.course_code || ""} ${report.course_title || ""} • ${(LANG_META[report.language]?.label || report.language)}`;
+
+    const body = document.getElementById("reviewModalBody");
+    body.innerHTML = (report.tasks || []).map((t, ti) => {
+        const methHtml = (t.methodology || []).map((m, mi) => `
+            <div class="review-meth-row" data-meth-idx="${mi}">
+                <input type="text" class="rev-meth-title" value="${escapeAttr(m.title || "")}" placeholder="Point title">
+                <input type="text" class="rev-meth-desc" value="${escapeAttr(m.description || "")}" placeholder="Technical description">
+            </div>
+        `).join("");
+
+        const figsHtml = (t.images || []).length
+            ? `
+                <div class="field">
+                    <label>Captured Figures (${t.images.length})</label>
+                    <div class="review-figs-grid">
+                        ${t.images.map((im, fi) => `
+                            <div class="review-fig-card">
+                                <img src="${im.data}" alt="Figure ${fi + 1}">
+                                <input type="text" class="rev-fig-cap" data-fig-idx="${fi}" value="${escapeAttr(im.caption || "")}" placeholder="Figure caption">
+                            </div>
+                        `).join("")}
+                    </div>
+                </div>
+            `
+            : "";
+
+        return `
+            <div class="review-task-block" data-rev-task="${ti}">
+                <div class="review-task-head">
+                    <strong>Task ${ti + 1}: ${escapeHtml(t.title)}</strong>
+                    <div class="review-badges">
+                        <span class="engine-pill">Engine: ${escapeHtml(t.exec_engine || "local")}</span>
+                        ${t.self_healed ? `<span class="status-pill status-completed">Self-Healed</span>` : ""}
+                    </div>
+                </div>
+                <div class="field">
+                    <label>1. Problem Overview</label>
+                    <textarea rows="3" class="rev-overview">${escapeHtml(t.problem_overview || "")}</textarea>
+                </div>
+                <div class="field">
+                    <label>2. Methodology Points</label>
+                    <div class="rev-meth-list">${methHtml}</div>
+                </div>
+                <div class="field-row-2">
+                    <div class="field">
+                        <label>3. Source Filename</label>
+                        <input type="text" class="rev-filename" value="${escapeAttr(t.filename || "main.py")}">
+                    </div>
+                    <div class="field">
+                        <label>Task Title</label>
+                        <input type="text" class="rev-title" value="${escapeAttr(t.title || "")}">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Source Code</label>
+                    <textarea rows="8" class="custom-code-area rev-code">${escapeHtml(t.code || "")}</textarea>
+                </div>
+                <div class="field">
+                    <label>4. Execution Output (stdout)</label>
+                    <textarea rows="4" class="custom-code-area rev-output">${escapeHtml(t.output || "")}</textarea>
+                </div>
+                ${figsHtml}
+                <div class="field">
+                    <label>5. Result and Discussion</label>
+                    <textarea rows="4" class="rev-discussion">${escapeHtml(t.result_discussion || "")}</textarea>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+function closeReviewModal() {
+    document.getElementById("reviewModal").hidden = true;
+}
+
+async function compileReviewedReport() {
+    if (!state.preparedReport) return;
+    const btn = document.getElementById("compileFinalBtn");
+    btn.disabled = true;
+    btn.textContent = "Compiling PDF...";
+
+    try {
+        const edited = structuredClone(state.preparedReport);
+        document.querySelectorAll("#reviewModalBody .review-task-block").forEach((block, ti) => {
+            const task = edited.tasks[ti];
+            if (!task) return;
+            task.title = block.querySelector(".rev-title").value.trim() || task.title;
+            task.filename = block.querySelector(".rev-filename").value.trim() || task.filename;
+            task.problem_overview = block.querySelector(".rev-overview").value.trim();
+            task.code = block.querySelector(".rev-code").value;
+            task.output = block.querySelector(".rev-output").value;
+            task.result_discussion = block.querySelector(".rev-discussion").value.trim();
+            task.methodology = Array.from(block.querySelectorAll(".review-meth-row")).map((row) => ({
+                title: row.querySelector(".rev-meth-title").value.trim(),
+                description: row.querySelector(".rev-meth-desc").value.trim(),
+            })).filter((m) => m.title || m.description);
+            block.querySelectorAll(".rev-fig-cap").forEach((inp) => {
+                const fi = parseInt(inp.dataset.figIdx, 10);
+                if (task.images?.[fi]) task.images[fi].caption = inp.value.trim();
+            });
+        });
+
+        const res = await fetch("/api/compile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(edited),
+        });
+        if (!res.ok) {
+            let msg = `Compilation failed (HTTP ${res.status})`;
+            try { msg = (await res.json()).detail || msg; } catch {}
+            throw new Error(msg);
+        }
+
+        const reportId = res.headers.get("X-Report-Id");
+        const hasLatexZip = res.headers.get("X-Has-Latex-Zip") === "true";
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${edited.student_id}_Lab${edited.lab_number}_Report.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+        if (state.activeDraftId) {
+            persistDrafts(loadDrafts().filter((d) => d.id !== state.activeDraftId));
+            state.activeDraftId = null;
+        }
+
+        closeReviewModal();
+        await fetchDashboardData();
+        showToast("Edited report compiled to PDF + Overleaf .zip!");
+        if (reportId) {
+            openPdfPreview(reportId, edited.lab_title || `Lab Report ${edited.lab_number}`, edited.course_title, hasLatexZip);
+        }
+    } catch (err) {
+        showToast(err.message, true);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Compile Final PDF";
+    }
 }

@@ -11,6 +11,7 @@ import io
 import os
 import re
 import base64
+import zipfile
 import subprocess
 import tempfile
 import shutil
@@ -421,4 +422,17 @@ class LaTeXGenerator:
 
             final_path = os.path.join(output_dir, output_filename)
             shutil.copy(pdf_path, final_path)
+
+            # Save Overleaf-ready LaTeX .zip bundle (main.tex + logo + figures)
+            stem = os.path.splitext(output_filename)[0]
+            zip_path = os.path.join(output_dir, f"{stem}_latex.zip")
+            try:
+                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                    zf.write(tex_path, arcname="main.tex")
+                    for fname in os.listdir(tmpdir):
+                        if fname.endswith(".png") and fname != "logo.png":
+                            zf.write(os.path.join(tmpdir, fname), arcname=fname)
+            except Exception as ze:
+                print(f"Warning: Failed to create Overleaf zip: {ze}")
+
             return final_path

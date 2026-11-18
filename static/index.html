@@ -374,12 +374,29 @@
                     <div class="view-header-bar">
                         <div>
                             <h2 class="view-title">Create Lab Report</h2>
-                            <p class="view-subtitle">Fill in your course &amp; task details. AI generates methodology, code, execution output, and LaTeX PDF.</p>
+                            <p class="view-subtitle">Fill in your course &amp; task details, or upload a lab sheet PDF/image to auto-fill.</p>
                         </div>
                         <div class="view-header-actions">
                             <button type="button" class="btn btn-surface" onclick="saveCurrentDraft()">Save Draft</button>
                             <button type="button" class="btn btn-surface" onclick="navigateTo('templates')">Load Template</button>
                         </div>
+                    </div>
+
+                    <!-- Lab Sheet Auto-Fill Dropzone -->
+                    <div class="labsheet-banner" id="labsheetDropzone"
+                         onclick="document.getElementById('labsheetFileInput').click()"
+                         ondragover="event.preventDefault(); this.classList.add('dragover')"
+                         ondragleave="this.classList.remove('dragover')"
+                         ondrop="handleLabSheetDrop(event)">
+                        <div class="labsheet-icon" aria-hidden="true">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 16V4M12 4L7.5 8.5M12 4L16.5 8.5M4 17V18.5C4 19.6 4.9 20.5 6 20.5H18C19.1 20.5 20 19.6 20 18.5V17" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </div>
+                        <div class="labsheet-copy">
+                            <strong id="labsheetTitle">Auto-Fill from Lab Sheet (PDF, PNG, JPG, or TXT)</strong>
+                            <small id="labsheetStatus">Drop your teacher's lab manual PDF or question screenshot here to extract course info, tasks, and requirements automatically.</small>
+                        </div>
+                        <span class="btn btn-surface btn-sm">Upload Sheet</span>
+                        <input type="file" id="labsheetFileInput" accept=".pdf,image/*,.txt,.md" hidden onchange="handleLabSheetFile(this.files[0]); this.value='';">
                     </div>
 
                     <form id="reportForm" class="create-form">
@@ -518,11 +535,16 @@
                                     <div class="generate-footer">
                                         <div class="generate-note">
                                             <span class="dot-online"></span>
-                                            <span>Compiles real LaTeX PDF with UFTB crest, syntax-highlighted code, figures &amp; discussion.</span>
+                                            <span>Self-healing execution, Matplotlib plot capture, LaTeX PDF &amp; Overleaf .zip export.</span>
                                         </div>
-                                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                                            <span class="btn-text">Generate Lab Report PDF</span>
-                                        </button>
+                                        <div class="generate-actions">
+                                            <button type="button" class="btn btn-surface btn-lg" id="reviewBtn" onclick="prepareAndReview()">
+                                                Review &amp; Edit First
+                                            </button>
+                                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                                <span class="btn-text">Generate Lab Report PDF</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -607,10 +629,11 @@
 
                         <div class="card-surface terminal-card">
                             <div class="editor-head">
-                                <span>Console Output</span>
+                                <span>Console Output &amp; Plots</span>
                                 <span class="engine-pill" id="workspaceExecMeta">Ready</span>
                             </div>
-                            <pre class="terminal-output" id="workspaceOutput">Click "Run Code" to execute your program and inspect stdout here.</pre>
+                            <pre class="terminal-output" id="workspaceOutput">Click "Run Code" to execute your program and inspect stdout or Matplotlib charts here.</pre>
+                            <div class="workspace-plots" id="workspacePlots" hidden></div>
                         </div>
                     </div>
                 </section>
@@ -777,11 +800,29 @@
                     <small id="pdfModalSub" class="muted-hint">PDF Document</small>
                 </div>
                 <div class="pdf-modal-actions">
+                    <a id="pdfModalLatex" class="btn btn-surface btn-sm" href="#" download hidden>Overleaf .zip</a>
                     <a id="pdfModalDownload" class="btn btn-primary btn-sm" href="#" download>Download PDF</a>
                     <button type="button" class="icon-btn" onclick="closePdfModal()" aria-label="Close preview">✕</button>
                 </div>
             </div>
             <iframe id="pdfModalFrame" class="pdf-iframe" title="PDF Preview"></iframe>
+        </div>
+    </div>
+
+    <!-- Review & Edit Studio Modal -->
+    <div id="reviewModal" class="modal-overlay" hidden>
+        <div class="review-modal-card">
+            <div class="pdf-modal-header">
+                <div>
+                    <h3 id="reviewModalTitle">Review &amp; Edit Before Compiling</h3>
+                    <small id="reviewModalSub" class="muted-hint">Inspect or refine AI-generated methodology, code, output, and discussion.</small>
+                </div>
+                <div class="pdf-modal-actions">
+                    <button type="button" class="btn btn-surface btn-sm" onclick="closeReviewModal()">Back to Form</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="compileFinalBtn" onclick="compileReviewedReport()">Compile Final PDF</button>
+                </div>
+            </div>
+            <div class="review-modal-body" id="reviewModalBody"></div>
         </div>
     </div>
 

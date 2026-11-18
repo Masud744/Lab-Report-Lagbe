@@ -114,6 +114,8 @@ class ReportStorage:
                 fpath = os.path.join(OUTPUT_DIR, r.get("filename", ""))
                 if r.get("filename") and os.path.exists(fpath):
                     r["file_size"] = os.path.getsize(fpath)
+                    stem = os.path.splitext(r["filename"])[0]
+                    r["has_latex_zip"] = os.path.exists(os.path.join(OUTPUT_DIR, f"{stem}_latex.zip"))
                     valid.append(r)
                 else:
                     changed = True
@@ -199,6 +201,13 @@ class ReportStorage:
                     os.remove(fpath)
                 except OSError:
                     pass
+                stem = os.path.splitext(target.get("filename", ""))[0]
+                zpath = os.path.join(OUTPUT_DIR, f"{stem}_latex.zip")
+                if os.path.exists(zpath):
+                    try:
+                        os.remove(zpath)
+                    except OSError:
+                        pass
             store["activity"].insert(0, {
                 "id": str(uuid.uuid4())[:8],
                 "type": "delete",
