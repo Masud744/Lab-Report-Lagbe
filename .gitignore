@@ -1,22 +1,35 @@
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
+*$py.class
+*.so
 venv/
-.env
+.venv/
+env/
 
-# Output
-output/
-*.pdf
-*.aux
-*.log
-*.out
+# Environment variables and secrets (NEVER commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Runtime data and generated output
+data/
+output/*.pdf
+output/*.png
+output/*.jpg
 
 # OS
 .DS_Store
 Thumbs.db
 
-# IDE
-.vscode/
-.idea/
-
+# Logs
+*.log

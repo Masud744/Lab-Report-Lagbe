@@ -1,6 +1,10 @@
 \documentclass[11pt,a4paper]{article}
 
-\usepackage[margin=1.4cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{textcomp}
+\usepackage[margin=1.5cm]{geometry}
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -8,19 +12,21 @@
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{tikz}
+\usepackage{caption}
+\usepackage{multicol}
 
 \hypersetup{
     colorlinks=true,
     linkcolor=blue,
     filecolor=magenta,
     urlcolor=blue,
-    pdftitle={<< course_code >> - Lab Report << lab_number >>: << lab_title >>},
-    pdfauthor={<< student_name >>}
+    pdftitle={<< meta_title >>},
+    pdfauthor={<< meta_author >>}
 }
 
 \definecolor{codegreen}{rgb}{0,0.55,0}
-\definecolor{codegray}{rgb}{0.45,0.45,0.45}
-\definecolor{codepurple}{rgb}{0.55,0,0.75}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
 \definecolor{backcolour}{rgb}{0.98,0.98,0.98}
 \definecolor{keywordblue}{rgb}{0.0,0.2,0.8}
 
@@ -37,16 +43,18 @@
 
 \lstdefinestyle{codestyle}{
     language=CustomLang,
+    inputencoding=utf8,
+    extendedchars=true,
     backgroundcolor=\color{backcolour},
     commentstyle=\color{codegreen}\itshape,
     keywordstyle=\color{keywordblue}\bfseries,
     numberstyle=\tiny\color{codegray},
     stringstyle=\color{codepurple},
-    basicstyle=\ttfamily\scriptsize\linespread{0.82}\selectfont,
+    basicstyle=\ttfamily\scriptsize,
     breaklines=true,
     numbers=left,
-    numbersep=5pt,
-    tabsize=2,
+    numbersep=4pt,
+    tabsize=4,
     frame=single,
     rulecolor=\color{lightgray},
     aboveskip=4pt,
@@ -57,8 +65,10 @@
 }
 
 \lstdefinestyle{outputstyle}{
+    inputencoding=utf8,
+    extendedchars=true,
     backgroundcolor=\color{black!5},
-    basicstyle=\ttfamily\scriptsize\linespread{0.82}\selectfont,
+    basicstyle=\ttfamily\scriptsize,
     breaklines=true,
     frame=single,
     rulecolor=\color{lightgray},
@@ -73,7 +83,9 @@
 
 \begin{document}
 
+% ==============================================================================
 % COVER PAGE
+% ==============================================================================
 \begin{titlepage}
     \begin{tikzpicture}[remember picture, overlay]
         \draw[line width=1.2pt]
@@ -89,22 +101,21 @@
     \centering
     \vspace*{0.4cm}
 
-    \IfFileExists{logo.png}{
-        \includegraphics[width=3.6cm]{logo.png}\\[0.4cm]
-    }{}
+    \IfFileExists{uftb.png}{
+        \includegraphics[width=3.6cm]{uftb.png}\\[0.4cm]
+    }{
+        \IfFileExists{logo.png}{
+            \includegraphics[width=3.6cm]{logo.png}\\[0.4cm]
+        }{}
+    }
     {\normalsize \textbf{<< university|upper >>}}\\[0.16cm]
     {\footnotesize \textbf{<< department|upper >>}}\\[0.14cm]
-    {\footnotesize << faculty|upper >>}\\[0.65cm]
+    {\footnotesize << faculty|upper >>}\\[0.55cm]
 
     \noindent\rule{0.88\textwidth}{0.85pt}\\[0.85cm]
 
     {\large \textbf{LAB REPORT << '%02d'|format(lab_number|int) >>}}\\[0.25cm]
-    {\normalsize \textbf{<< lab_title|upper >>}}\\[0.15cm]
-    <% if lab_subtitle %>
-    {\footnotesize \textit{(<< lab_subtitle >>)}}\\[0.85cm]
-    <% else %>
-    \vspace{0.85cm}
-    <% endif %>
+    {\normalsize \textbf{<< lab_title|upper >>}}\\[0.85cm]
 
     {\normalsize \textbf{COURSE CODE: << course_code|upper >>}}\\[0.18cm]
     {\normalsize \textbf{COURSE TITLE: << course_title|upper >>}}\\[1.0cm]
@@ -128,60 +139,112 @@
 \newpage
 \pagenumbering{arabic}
 
-% PROBLEM STATEMENTS
-\section*{1. Problem Statements and Requirements}
-\noindent\rule{\textwidth}{0.5pt}\vspace{0.15cm}
-
 <% for task in tasks %>
-\subsection*{Task << loop.index >>: << task.title >>}
-\textbf{Problem Statement:} << task.description >>\\
+<% if multi_task %>
+\noindent\colorbox{black!5}{\parbox{\dimexpr\textwidth-2\fboxsep\relax}{\vspace{4pt}\textbf{\large Task << loop.index >>: << task.title >>}\vspace{4pt}}}
+\vspace{0.3cm}
+<% endif %>
+
+% ==============================================================================
+% 1. PROBLEM DESCRIPTION
+% ==============================================================================
+\section*{<% if multi_task %><< loop.index >>.1<% else %>1.<% endif %> Problem Description}
+\noindent\rule{\textwidth}{0.6pt}\vspace{0.15cm}
+
+<< task.problem_overview >>
+
 <% if task.requirements %>
-\textbf{Requirements:}
-\begin{itemize}
+\vspace{0.25cm}
+\noindent\textbf{Key Requirements:}
+\begin{enumerate}
     \setlength{\itemsep}{2pt}
     <% for req in task.requirements %>
     \item << req >>
     <% endfor %>
-\end{itemize}
+\end{enumerate}
 <% endif %>
-<% if not loop.last %>
-\vspace{0.25cm}
-<% endif %>
-<% endfor %>
 
-<% if github_link %>
-\vspace{0.3cm}
+<% if github_link and loop.first %>
+\vspace{0.2cm}
 \noindent\textbf{GitHub Repository Link:}\\
 \href{<< github_link >>}{\texttt{<< github_link|replace('_', '\\_') >>}}
 <% endif %>
 
-\vspace{0.4cm}
-\section*{2. Summary \& Key Findings}
-\noindent\rule{\textwidth}{0.5pt}\vspace{0.15cm}
-All << tasks|length >> laboratory tasks were implemented in << language_name >> using clean programming principles:
-\begin{itemize}
+% ==============================================================================
+% 2. METHODOLOGY
+% ==============================================================================
+<% if task.methodology %>
+\vspace{0.35cm}
+\section*{<% if multi_task %><< loop.index >>.2<% else %>2.<% endif %> Methodology}
+\noindent\rule{\textwidth}{0.6pt}\vspace{0.15cm}
+
+\begin{enumerate}
     \setlength{\itemsep}{4pt}
-    <% for task in tasks %>
-    \item \textbf{Task << loop.index >> (<< task.title >>):} << task.summary if task.summary else "Successfully implemented and tested." >>
+    <% for m in task.methodology %>
+    \item \textbf{<< m.title >>:} << m.description >>
     <% endfor %>
-\end{itemize}
+\end{enumerate}
+<% endif %>
 
-<% for task in tasks %>
 \newpage
-\section*{<< loop.index + 2 >>. Task << loop.index >>: << task.title >>}
-\noindent\rule{\textwidth}{0.5pt}\vspace{0.15cm}
 
-\subsection*{<< language_name >> Source Code}
+% ==============================================================================
+% 3. SOURCE CODE IMPLEMENTATION
+% ==============================================================================
+\section*{<% if multi_task %><< loop.index >>.3<% else %>3.<% endif %> << language_name >> Source Code (\texttt{<< task.filename >>})}
+\noindent\rule{\textwidth}{0.6pt}\vspace{0.15cm}
+
+<% if task.use_multicol %>
+\begin{multicols}{2}
 \begin{lstlisting}[style=codestyle]
 << task.code >>
 \end{lstlisting}
+\end{multicols}
+<% else %>
+\begin{lstlisting}[style=codestyle]
+<< task.code >>
+\end{lstlisting}
+<% endif %>
 
-\vspace{0.2cm}
+\newpage
+
+% ==============================================================================
+% 4. OUTPUT VISUALIZATION
+% ==============================================================================
+\section*{<% if multi_task %><< loop.index >>.4<% else %>4.<% endif %> Output Visualization}
+\noindent\rule{\textwidth}{0.6pt}\vspace{0.15cm}
+
+<% if task.images %>
+The program was executed and visual output was captured at different stages:
+
+\vspace{0.25cm}
+\begin{center}
+<% for img in task.images %>
+\begin{minipage}{0.45\textwidth}\centering\includegraphics[width=\textwidth]{<< img.filename >>}\captionof{figure}{<< img.caption >>}\end{minipage}<% if loop.index % 2 == 1 %>\hfill<% else %>\par\vspace{0.3cm}<% endif %>
+<% endfor %>
+\end{center}
+\vspace{0.3cm}
+<% endif %>
+
+<% if task.output and (not task.images or not task.is_visual) %>
 \subsection*{Execution Output}
 \begin{lstlisting}[style=outputstyle]
 << task.output >>
 \end{lstlisting}
+\vspace{0.3cm}
+<% endif %>
+
+% ==============================================================================
+% 5. RESULT AND DISCUSSION
+% ==============================================================================
+\section*{<% if multi_task %><< loop.index >>.5<% else %>5.<% endif %> Result and Discussion}
+\noindent\rule{\textwidth}{0.6pt}\vspace{0.15cm}
+
+<< task.result_discussion >>
+
+<% if not loop.last %>
+\newpage
+<% endif %>
 <% endfor %>
 
 \end{document}
-

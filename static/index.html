@@ -3,239 +3,795 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lab Report Lagbe!</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <title>Lab Report Lagbe? — Academic Programming Workspace</title>
+    <meta name="description" content="Generate code, run experiments, and compile publication-grade LaTeX PDF lab reports in minutes.">
+    <link rel="icon" type="image/png" href="/images/uftb.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <div class="app">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-inner">
-                <div class="logo-group">
-                    <img src="/images/logo.png" alt="Logo" class="logo-img">
+    <div class="workspace-shell">
+        <!-- Mobile Sidebar Backdrop -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
+
+        <!-- Left Emerald Sidebar -->
+        <aside class="sidebar" id="sidebar" aria-label="Primary Navigation">
+            <div class="sidebar-bg-wave" aria-hidden="true">
+                <svg viewBox="0 0 260 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M-20 120C45 80 120 140 190 95C235 66 260 95 270 125V330H-20V120Z" fill="rgba(255,255,255,0.04)"/>
+                    <path d="M-30 205C55 165 135 230 215 180C250 158 270 185 275 215V330H-30V205Z" fill="rgba(255,255,255,0.035)"/>
+                </svg>
+            </div>
+
+            <div class="sidebar-top">
+                <button type="button" class="brand" onclick="navigateTo('dashboard')" aria-label="Go to Dashboard">
+                    <div class="brand-icon" aria-hidden="true">
+                        <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
+                            <path d="M13 5H23" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
+                            <path d="M15 5V13.2L8.4 24.4C7.3 26.2 8.6 28.5 10.7 28.5H25.3C27.4 28.5 28.7 26.2 27.6 24.4L21 13.2V5" stroke="white" stroke-width="2.2" stroke-linejoin="round"/>
+                            <path d="M11.6 21.5H24.4L26.2 24.6C26.7 25.5 26 26.6 25 26.6H11C10 26.6 9.3 25.5 9.8 24.6L11.6 21.5Z" fill="white"/>
+                            <circle cx="16.5" cy="17.5" r="1.4" fill="#6EE7B7"/>
+                            <circle cx="20" cy="14.5" r="1.1" fill="#A7F3D0"/>
+                        </svg>
+                    </div>
+                    <div class="brand-copy">
+                        <span class="brand-name">Lab Report<br>Lagbe?</span>
+                        <span class="brand-pill">Academic Workspace</span>
+                    </div>
+                </button>
+
+                <nav class="nav-list" aria-label="Main Menu">
+                    <button type="button" class="nav-item active" data-view="dashboard" onclick="navigateTo('dashboard')">
+                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="11" y="3" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="11" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="11" y="11" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/></svg>
+                        <span>Dashboard</span>
+                    </button>
+                    <button type="button" class="nav-item" data-view="create" onclick="navigateTo('create')">
+                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.2" stroke="currentColor" stroke-width="1.6"/><path d="M10 6.8V13.2M6.8 10H13.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                        <span>Create Report</span>
+                    </button>
+                    <button type="button" class="nav-item" data-view="reports" onclick="navigateTo('reports')">
+                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><path d="M5.5 3.2H11.5L15 6.7V16.8H5.5V3.2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 10.5H12.5M8 13.5H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        <span>My Reports</span>
+                        <span class="nav-badge" id="navReportsCount" hidden>0</span>
+                    </button>
+                    <button type="button" class="nav-item" data-view="workspace" onclick="navigateTo('workspace')">
+                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><path d="M6.8 6.5L3.2 10L6.8 13.5M13.2 6.5L16.8 10L13.2 13.5M11.2 4.8L8.8 15.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span>Code Workspace</span>
+                    </button>
+                    <button type="button" class="nav-item" data-view="templates" onclick="navigateTo('templates')">
+                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><path d="M10 3.5L17 7.2L10 10.9L3 7.2L10 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 10.6L10 14.3L17 10.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 13.8L10 17.2L17 13.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span>Templates</span>
+                    </button>
+                    <button type="button" class="nav-item" data-view="activity" onclick="navigateTo('activity')">
+                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.2" stroke="currentColor" stroke-width="1.6"/><path d="M10 6.2V10.2L12.8 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span>Activity History</span>
+                    </button>
+                </nav>
+            </div>
+
+            <div class="sidebar-bottom">
+                <nav class="nav-list nav-list-secondary" aria-label="Support and Settings">
+                    <button type="button" class="nav-item" data-view="settings" onclick="navigateTo('settings')">
+                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="2.7" stroke="currentColor" stroke-width="1.6"/><path d="M10 3V4.8M10 15.2V17M3 10H4.8M15.2 10H17M5.05 5.05L6.3 6.3M13.7 13.7L14.95 14.95M14.95 5.05L13.7 6.3M6.3 13.7L5.05 14.95" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                        <span>Settings</span>
+                    </button>
+                    <button type="button" class="nav-item" data-view="help" onclick="navigateTo('help')">
+                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.2" stroke="currentColor" stroke-width="1.6"/><path d="M8.1 7.8C8.1 6.7 9 5.9 10.1 5.9C11.2 5.9 12 6.6 12 7.6C12 8.5 11.3 9 10.5 9.5C10.1 9.8 10 10.1 10 10.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="13.8" r="0.9" fill="currentColor"/></svg>
+                        <span>Help &amp; Docs</span>
+                    </button>
+                </nav>
+
+                <button type="button" class="profile-card" onclick="navigateTo('settings')" aria-label="Edit student profile">
+                    <div class="avatar-circle" id="sidebarAvatar">SM</div>
+                    <div class="profile-meta">
+                        <span class="profile-name" id="sidebarProfileName">Shahriar A. Masud</span>
+                        <span class="profile-sub" id="sidebarProfileSub">IRE, UFTB</span>
+                    </div>
+                    <svg class="profile-chevron" viewBox="0 0 16 16" fill="none"><path d="M4.5 6.5L8 10L11.5 6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Workspace Canvas -->
+        <div class="workspace-main">
+            <!-- Top Bar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button type="button" class="mobile-menu-btn" onclick="openMobileSidebar()" aria-label="Open navigation menu">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5.5H17M3 10H17M3 14.5H17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                    </button>
                     <div>
-                        <h1 class="logo-text">Lab Report Lagbe<span class="accent">!</span></h1>
-                        <p class="tagline">AI-Powered Lab Report Generator</p>
+                        <h1 class="greeting-title" id="greetingTitle">Good Evening, Masud! 👋</h1>
+                        <p class="greeting-sub" id="greetingSub">Ready to create your next lab report?</p>
                     </div>
                 </div>
-            </div>
-        </header>
 
-        <!-- Main Content -->
-        <main class="main">
-            <form id="reportForm" class="form">
-
-                <!-- API Keys -->
-                <section class="card">
-                    <div class="card-header">
-                        <span class="card-icon">🔑</span>
-                        <h2>API Keys</h2>
+                <div class="topbar-right">
+                    <div class="search-box" role="search">
+                        <svg class="search-icon" viewBox="0 0 20 20" fill="none"><circle cx="9.2" cy="9.2" r="5.8" stroke="currentColor" stroke-width="1.7"/><path d="M13.6 13.6L17 17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                        <input type="text" id="globalSearchInput" placeholder="Search reports, templates, or docs..." autocomplete="off" aria-label="Search reports, templates, or docs">
+                        <kbd class="kbd-hint">Ctrl K</kbd>
+                        <div class="search-results" id="globalSearchResults" hidden></div>
                     </div>
-                    <div class="card-body">
-                        <div class="field">
-                            <label for="groqApiKey">Groq API Key *</label>
-                            <input type="password" id="groqApiKey" name="groq_api_key" placeholder="gsk_..." required>
-                            <small>Required — Get free key from <a href="https://console.groq.com/keys" target="_blank">console.groq.com</a></small>
+
+                    <div class="notif-wrap">
+                        <button type="button" class="icon-btn" id="notifBtn" onclick="toggleNotifications()" aria-label="Notifications" aria-expanded="false">
+                            <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M15 13.5H5L6.2 11.8V8.5C6.2 6.3 7.9 4.5 10 4.5C12.1 4.5 13.8 6.3 13.8 8.5V11.8L15 13.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.5 15.8C8.9 16.5 9.4 16.8 10 16.8C10.6 16.8 11.1 16.5 11.5 15.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                            <span class="notif-dot" id="notifDot"></span>
+                        </button>
+                        <div class="notif-popover" id="notifPopover" hidden>
+                            <div class="popover-header">
+                                <span>Recent Activity</span>
+                                <button type="button" class="link-btn" onclick="navigateTo('activity'); toggleNotifications(false);">View all</button>
+                            </div>
+                            <div class="popover-body" id="notifList"></div>
                         </div>
-                        <div class="field">
-                            <label for="rapidapiKey">RapidAPI Key (optional)</label>
-                            <input type="password" id="rapidapiKey" name="rapidapi_key" placeholder="your_rapidapi_key...">
-                            <small>Optional — For real code execution via <a href="https://rapidapi.com/judge0-official/api/judge0-ce" target="_blank">Judge0</a>. Without this, AI will predict code output.</small>
+                    </div>
+
+                    <button type="button" class="avatar-btn" id="topbarAvatar" onclick="navigateTo('settings')" aria-label="Open Settings">SM</button>
+                </div>
+            </header>
+
+            <!-- Views Container -->
+            <main class="views-root">
+                <!-- ==================== 1. DASHBOARD VIEW ==================== -->
+                <section class="view active" id="view-dashboard">
+                    <div class="dashboard-grid">
+                        <!-- Main Left Column -->
+                        <div class="dash-primary">
+                            <!-- Hero Banner -->
+                            <div class="hero-card">
+                                <div class="hero-content">
+                                    <h2 class="hero-heading">Create Professional<br>Lab Reports in Minutes</h2>
+                                    <p class="hero-desc">Generate code, run experiments, get explanations, and export a well-formatted PDF report.</p>
+                                    <div class="hero-actions">
+                                        <button type="button" class="btn btn-primary" onclick="startFreshReport()">
+                                            <span>+ Create New Report</span>
+                                        </button>
+                                        <button type="button" class="btn btn-surface" onclick="navigateTo('templates')">
+                                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M5.5 3.5H12L15.5 7V16.5H5.5V3.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 10H13M8 13H11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                            <span>Use Template</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="hero-art" aria-hidden="true">
+                                    <svg viewBox="0 0 320 190" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <circle cx="215" cy="95" r="78" fill="#B5E6D8" fill-opacity="0.55"/>
+                                        <!-- Document card -->
+                                        <g transform="rotate(4 195 95)">
+                                            <rect x="132" y="18" width="132" height="156" rx="14" fill="white" stroke="#CBE7DF" stroke-width="1.5"/>
+                                            <text x="180" y="45" fill="#0D2B28" font-family="Manrope, sans-serif" font-weight="700" font-size="11.5">Lab Report</text>
+                                            <!-- Flask badge -->
+                                            <path d="M150 30H160M152.5 30V38L147 47.5C146.3 48.7 147.2 50 148.6 50H161.4C162.8 50 163.7 48.7 163 47.5L157.5 38V30" stroke="#188C76" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M149.2 44.5H160.8L162 47.5C162.3 48.2 161.8 49 161 49H149C148.2 49 147.7 48.2 148 47.5L149.2 44.5Z" fill="#22A58A"/>
+                                            <rect x="148" y="62" width="96" height="6" rx="3" fill="#D5EBE5"/>
+                                            <rect x="148" y="75" width="82" height="6" rx="3" fill="#E3F2EE"/>
+                                            <rect x="148" y="88" width="90" height="6" rx="3" fill="#E3F2EE"/>
+                                            <rect x="148" y="101" width="60" height="6" rx="3" fill="#E3F2EE"/>
+                                            <rect x="148" y="122" width="44" height="32" rx="8" fill="#DCF4EC"/>
+                                            <path d="M165 133L160 138L165 143M175 133L180 138L175 143M171.5 131.5L168.5 144.5" stroke="#0C4F4A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </g>
+                                        <!-- Floating dark code terminal -->
+                                        <rect x="46" y="78" width="114" height="74" rx="11" fill="#17383C"/>
+                                        <circle cx="59" cy="91" r="2.6" fill="#F87171"/>
+                                        <circle cx="68" cy="91" r="2.6" fill="#FBBF24"/>
+                                        <circle cx="77" cy="91" r="2.6" fill="#34D399"/>
+                                        <rect x="57" y="103" width="38" height="4.5" rx="2.2" fill="#34D399"/>
+                                        <rect x="100" y="103" width="24" height="4.5" rx="2.2" fill="#60A5FA"/>
+                                        <rect x="65" y="114" width="52" height="4.5" rx="2.2" fill="#94A3B8"/>
+                                        <rect x="65" y="125" width="32" height="4.5" rx="2.2" fill="#F472B6"/>
+                                        <rect x="102" y="125" width="28" height="4.5" rx="2.2" fill="#FBBF24"/>
+                                        <rect x="57" y="136" width="44" height="4.5" rx="2.2" fill="#34D399"/>
+                                        <!-- Mini bar chart card -->
+                                        <rect x="226" y="126" width="64" height="46" rx="10" fill="white" stroke="#CBE7DF" stroke-width="1.4"/>
+                                        <rect x="239" y="150" width="8" height="12" rx="2.5" fill="#99DFCE"/>
+                                        <rect x="252" y="143" width="8" height="19" rx="2.5" fill="#34B399"/>
+                                        <rect x="265" y="135" width="8" height="27" rx="2.5" fill="#0C4F4A"/>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- 4 KPI Stat Cards -->
+                            <div class="kpi-row">
+                                <div class="kpi-card">
+                                    <div class="kpi-icon">
+                                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5.5 3.5H11.5L15 7V16.5H5.5V3.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 10.5H12.5M8 13.5H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                    </div>
+                                    <div class="kpi-body">
+                                        <div class="kpi-top">
+                                            <span class="kpi-value" id="kpiTotal">0</span>
+                                            <span class="kpi-chip" id="kpiTotalChip">All time</span>
+                                        </div>
+                                        <span class="kpi-label">Total Reports</span>
+                                    </div>
+                                </div>
+
+                                <div class="kpi-card">
+                                    <div class="kpi-icon">
+                                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.2" stroke="currentColor" stroke-width="1.6"/><path d="M6.8 10.2L9 12.4L13.4 7.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </div>
+                                    <div class="kpi-body">
+                                        <div class="kpi-top">
+                                            <span class="kpi-value" id="kpiCompleted">0</span>
+                                            <span class="kpi-chip">PDF Ready</span>
+                                        </div>
+                                        <span class="kpi-label">Completed</span>
+                                    </div>
+                                </div>
+
+                                <div class="kpi-card">
+                                    <div class="kpi-icon">
+                                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6.8 6.5L3.2 10L6.8 13.5M13.2 6.5L16.8 10L13.2 13.5M11.2 4.8L8.8 15.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </div>
+                                    <div class="kpi-body">
+                                        <div class="kpi-top">
+                                            <span class="kpi-value" id="kpiExecutions">0</span>
+                                            <span class="kpi-chip">Runs</span>
+                                        </div>
+                                        <span class="kpi-label">Code Executions</span>
+                                    </div>
+                                </div>
+
+                                <div class="kpi-card">
+                                    <div class="kpi-icon">
+                                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.2" stroke="currentColor" stroke-width="1.6"/><path d="M10 6.5V10.3L12.5 11.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                                    </div>
+                                    <div class="kpi-body">
+                                        <div class="kpi-top">
+                                            <span class="kpi-value" id="kpiDrafts">0</span>
+                                            <span class="kpi-chip kpi-chip-amber">Saved</span>
+                                        </div>
+                                        <span class="kpi-label">Draft Reports</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recent Reports Table -->
+                            <div class="card-surface">
+                                <div class="section-header">
+                                    <div class="section-title-group">
+                                        <svg class="section-icon" viewBox="0 0 20 20" fill="none"><path d="M5.5 3.2H11.5L15 6.7V16.8H5.5V3.2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 10.2H12.5M8 13.2H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                        <h3>Recent Reports</h3>
+                                    </div>
+                                    <button type="button" class="link-btn" onclick="navigateTo('reports')">View All →</button>
+                                </div>
+
+                                <div class="table-wrap">
+                                    <table class="reports-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Report Title</th>
+                                                <th>Language</th>
+                                                <th>Status</th>
+                                                <th>Updated</th>
+                                                <th class="col-actions">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recentReportsBody">
+                                            <!-- Populated dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Supported Languages Strip -->
+                            <div class="card-surface">
+                                <div class="section-header compact">
+                                    <div class="section-title-group">
+                                        <svg class="section-icon" viewBox="0 0 20 20" fill="none"><path d="M6.8 6.5L3.2 10L6.8 13.5M13.2 6.5L16.8 10L13.2 13.5M11.2 4.8L8.8 15.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                        <h3>Supported Languages</h3>
+                                    </div>
+                                    <span class="muted-hint">Click any language to start a report</span>
+                                </div>
+                                <div class="lang-chips-row" id="supportedLangChips"></div>
+                            </div>
                         </div>
+
+                        <!-- Right Secondary Column -->
+                        <aside class="dash-secondary">
+                            <!-- Interactive Calendar Card -->
+                            <div class="card-surface calendar-card">
+                                <div class="calendar-header">
+                                    <div class="section-title-group">
+                                        <svg class="section-icon" viewBox="0 0 20 20" fill="none"><rect x="3" y="4.5" width="14" height="12.5" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M6.5 2.8V5.5M13.5 2.8V5.5M3 8.5H17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                                        <h3 id="calendarMonthLabel">November 2026</h3>
+                                    </div>
+                                    <div class="cal-nav">
+                                        <button type="button" class="cal-nav-btn" onclick="changeCalendarMonth(-1)" aria-label="Previous month">‹</button>
+                                        <button type="button" class="cal-nav-btn" onclick="changeCalendarMonth(1)" aria-label="Next month">›</button>
+                                    </div>
+                                </div>
+                                <div class="calendar-weekdays">
+                                    <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+                                </div>
+                                <div class="calendar-days" id="calendarDays"></div>
+                            </div>
+
+                            <!-- Quick Start Card -->
+                            <div class="card-surface quick-card">
+                                <div class="section-header compact">
+                                    <div class="section-title-group">
+                                        <svg class="section-icon" viewBox="0 0 20 20" fill="none"><path d="M11.2 2.8L4.8 11.2H10L8.8 17.2L15.2 8.8H10L11.2 2.8Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+                                        <h3>Quick Start</h3>
+                                    </div>
+                                </div>
+                                <div class="quick-list">
+                                    <button type="button" class="quick-item quick-item-featured" onclick="startFreshReport()">
+                                        <span class="quick-icon">
+                                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" fill="#0B4F4A"/><path d="M10 6.8V13.2M6.8 10H13.2" stroke="white" stroke-width="1.7" stroke-linecap="round"/></svg>
+                                        </span>
+                                        <span class="quick-copy">
+                                            <strong>Create New Report</strong>
+                                            <small>Start from scratch</small>
+                                        </span>
+                                        <span class="quick-arrow">›</span>
+                                    </button>
+                                    <button type="button" class="quick-item" onclick="navigateTo('templates')">
+                                        <span class="quick-icon">
+                                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 3.5L16.5 7L10 10.5L3.5 7L10 3.5Z" stroke="#0B4F4A" stroke-width="1.5" stroke-linejoin="round"/><path d="M3.5 10.5L10 14L16.5 10.5" stroke="#0B4F4A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 13.8L10 17L16.5 13.8" stroke="#0B4F4A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                        </span>
+                                        <span class="quick-copy">
+                                            <strong>Use a Template</strong>
+                                            <small>Choose from ready templates</small>
+                                        </span>
+                                        <span class="quick-arrow">›</span>
+                                    </button>
+                                    <button type="button" class="quick-item" onclick="navigateTo('workspace')">
+                                        <span class="quick-icon">
+                                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M6.8 6.5L3.2 10L6.8 13.5M13.2 6.5L16.8 10L13.2 13.5M11.2 4.8L8.8 15.2" stroke="#0B4F4A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                        </span>
+                                        <span class="quick-copy">
+                                            <strong>Open Code Workspace</strong>
+                                            <small>Write, run and test your code</small>
+                                        </span>
+                                        <span class="quick-arrow">›</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Usage & Engine Status Card -->
+                            <div class="card-surface usage-card">
+                                <div class="usage-header">
+                                    <div class="section-title-group">
+                                        <svg class="section-icon" viewBox="0 0 20 20" fill="none"><path d="M4.5 15.5V11M10 15.5V6.5M15.5 15.5V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                                        <h3>Usage This Month</h3>
+                                    </div>
+                                    <span class="usage-ratio" id="usageRatio">0 / 50 reports</span>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-fill" id="usageBarFill" style="width: 0%"></div>
+                                </div>
+                                <div class="usage-footer">
+                                    <span id="usagePercent">0% used</span>
+                                    <span class="engine-pill" id="engineStatusPill">Checking AI...</span>
+                                </div>
+                            </div>
+                        </aside>
                     </div>
                 </section>
 
-                <!-- Student Info -->
-                <section class="card">
-                    <div class="card-header">
-                        <span class="card-icon">🎓</span>
-                        <h2>Student Info</h2>
-                    </div>
-                    <div class="card-body">
-                        <div class="grid-2">
-                            <div class="field">
-                                <label for="studentName">Full Name *</label>
-                                <input type="text" id="studentName" name="student_name" placeholder="Shahriar Alom Masud" required>
-                            </div>
-                            <div class="field">
-                                <label for="studentId">Student ID *</label>
-                                <input type="text" id="studentId" name="student_id" placeholder="2201032" required>
-                            </div>
+                <!-- ==================== 2. CREATE REPORT VIEW ==================== -->
+                <section class="view" id="view-create">
+                    <div class="view-header-bar">
+                        <div>
+                            <h2 class="view-title">Create Lab Report</h2>
+                            <p class="view-subtitle">Fill in your course &amp; task details. AI generates methodology, code, execution output, and LaTeX PDF.</p>
                         </div>
-                        <div class="field">
-                            <label for="session">Session</label>
-                            <input type="text" id="session" name="session" value="2022-2023" placeholder="2022-2023">
+                        <div class="view-header-actions">
+                            <button type="button" class="btn btn-surface" onclick="saveCurrentDraft()">Save Draft</button>
+                            <button type="button" class="btn btn-surface" onclick="navigateTo('templates')">Load Template</button>
                         </div>
                     </div>
+
+                    <form id="reportForm" class="create-form">
+                        <div class="form-grid-layout">
+                            <!-- Left Column: Metadata -->
+                            <div class="form-col-side">
+                                <!-- Engine Status Banner -->
+                                <div class="card-surface api-status-card">
+                                    <div class="card-toggle-head" onclick="toggleSection('apiOverrideBody', this)">
+                                        <div>
+                                            <h3>AI Engine &amp; Key</h3>
+                                            <span class="engine-pill" id="formEngineBadge">Checking server...</span>
+                                        </div>
+                                        <span class="toggle-caret">▸</span>
+                                    </div>
+                                    <div class="collapsible-body collapsed" id="apiOverrideBody">
+                                        <div class="field">
+                                            <label for="groqApiKey">Groq API Key (Optional Override)</label>
+                                            <input type="password" id="groqApiKey" name="groq_api_key" placeholder="Using server .env key automatically">
+                                            <small id="apiKeyHelp">Already configured on server. Only fill this if using a different key.</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Student Info -->
+                                <div class="card-surface">
+                                    <h3 class="card-subtitle">Student Information</h3>
+                                    <div class="field-row-2">
+                                        <div class="field">
+                                            <label for="studentName">Full Name *</label>
+                                            <input type="text" id="studentName" name="student_name" value="Shahriar Alom Masud" required>
+                                        </div>
+                                        <div class="field">
+                                            <label for="studentId">Student ID *</label>
+                                            <input type="text" id="studentId" name="student_id" value="2201032" required>
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="session">Academic Session</label>
+                                        <input type="text" id="session" name="session" value="2022-2023">
+                                    </div>
+                                </div>
+
+                                <!-- Course & Instructor -->
+                                <div class="card-surface">
+                                    <h3 class="card-subtitle">Course &amp; Instructor</h3>
+                                    <div class="field-row-2">
+                                        <div class="field">
+                                            <label for="courseCode">Course Code</label>
+                                            <input type="text" id="courseCode" name="course_code" placeholder="IRE 404">
+                                        </div>
+                                        <div class="field">
+                                            <label for="labNumber">Lab Number</label>
+                                            <input type="number" id="labNumber" name="lab_number" value="1" min="1" max="30">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="courseTitle">Course Title</label>
+                                        <input type="text" id="courseTitle" name="course_title" placeholder="Computer Graphics and Animation Sessional">
+                                    </div>
+                                    <div class="field">
+                                        <label for="labTitle">Lab Title *</label>
+                                        <input type="text" id="labTitle" name="lab_title" placeholder="e.g. 3D Wireframe Cuboid and Rotation" required>
+                                    </div>
+                                    <div class="field-row-2">
+                                        <div class="field">
+                                            <label for="instructorName">Instructor Name</label>
+                                            <input type="text" id="instructorName" name="instructor_name" placeholder="Farzana Akter">
+                                        </div>
+                                        <div class="field">
+                                            <label for="instructorTitle">Designation</label>
+                                            <input type="text" id="instructorTitle" name="instructor_title" value="Lecturer">
+                                        </div>
+                                    </div>
+                                    <div class="field-row-2">
+                                        <div class="field">
+                                            <label for="language">Programming Language</label>
+                                            <select id="language" name="language"></select>
+                                        </div>
+                                        <div class="field">
+                                            <label for="githubLink">GitHub Repo (Optional)</label>
+                                            <input type="url" id="githubLink" name="github_link" placeholder="https://github.com/...">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- University Info (Collapsible, Defaults to UFTB) -->
+                                <div class="card-surface">
+                                    <div class="card-toggle-head" onclick="toggleSection('univBody', this)">
+                                        <div>
+                                            <h3>University &amp; Cover Logo</h3>
+                                            <small class="muted-hint">Default: UFTB (IRE) with official seal</small>
+                                        </div>
+                                        <span class="toggle-caret">▸</span>
+                                    </div>
+                                    <div class="collapsible-body collapsed" id="univBody">
+                                        <div class="field">
+                                            <label for="university">University Name</label>
+                                            <input type="text" id="university" name="university" value="University of Frontier Technology, Bangladesh">
+                                        </div>
+                                        <div class="field-row-2">
+                                            <div class="field">
+                                                <label for="universityShort">Short Form</label>
+                                                <input type="text" id="universityShort" name="university_short" value="UFTB">
+                                            </div>
+                                            <div class="field">
+                                                <label for="departmentShort">Dept Short</label>
+                                                <input type="text" id="departmentShort" name="department_short" value="IRE">
+                                            </div>
+                                        </div>
+                                        <div class="field">
+                                            <label for="department">Department (Full)</label>
+                                            <input type="text" id="department" name="department" value="Department of Internet of Things and Robotics Engineering (IRE)">
+                                        </div>
+                                        <div class="field">
+                                            <label for="faculty">Faculty</label>
+                                            <input type="text" id="faculty" name="faculty" value="Faculty of Cyber Physical System Engineering">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right Column: Tasks Builder -->
+                            <div class="form-col-main">
+                                <div class="card-surface tasks-panel">
+                                    <div class="section-header">
+                                        <div>
+                                            <h3>Lab Tasks &amp; Visualizations</h3>
+                                            <p class="muted-hint">Add one or more programming tasks. You can let AI write the code or paste your own code, and attach up to 4 output screenshots per task.</p>
+                                        </div>
+                                        <button type="button" class="btn btn-surface btn-sm" onclick="addTask()">+ Add Task</button>
+                                    </div>
+
+                                    <div id="tasksContainer" class="tasks-stack"></div>
+
+                                    <div class="generate-footer">
+                                        <div class="generate-note">
+                                            <span class="dot-online"></span>
+                                            <span>Compiles real LaTeX PDF with UFTB crest, syntax-highlighted code, figures &amp; discussion.</span>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                            <span class="btn-text">Generate Lab Report PDF</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
                 </section>
 
-                <!-- University Info -->
-                <section class="card collapsible">
-                    <div class="card-header" onclick="toggleCard(this)">
-                        <span class="card-icon">🏫</span>
-                        <h2>University Info</h2>
-                        <span class="collapse-arrow">▸</span>
-                    </div>
-                    <div class="card-body collapsed">
-                        <div class="field">
-                            <label for="university">University Name</label>
-                            <input type="text" id="university" name="university" value="University of Frontier Technology, Bangladesh">
+                <!-- ==================== 3. MY REPORTS VIEW ==================== -->
+                <section class="view" id="view-reports">
+                    <div class="view-header-bar">
+                        <div>
+                            <h2 class="view-title">My Reports</h2>
+                            <p class="view-subtitle">Preview, download, resume drafts, or manage all your generated lab reports.</p>
                         </div>
-                        <div class="grid-2">
-                            <div class="field">
-                                <label for="universityShort">Short Form</label>
-                                <input type="text" id="universityShort" name="university_short" value="UFTB">
-                            </div>
-                            <div class="field">
-                                <label for="faculty">Faculty</label>
-                                <input type="text" id="faculty" name="faculty" value="Faculty of Cyber Physical System Engineering">
-                            </div>
-                        </div>
-                        <div class="grid-2">
-                            <div class="field">
-                                <label for="department">Department (Full)</label>
-                                <input type="text" id="department" name="department" value="Department of Internet of Things and Robotics Engineering (IRE)">
-                            </div>
-                            <div class="field">
-                                <label for="departmentShort">Dept Short</label>
-                                <input type="text" id="departmentShort" name="department_short" value="IRE">
-                            </div>
+                        <div class="view-header-actions">
+                            <button type="button" class="btn btn-primary" onclick="startFreshReport()">+ New Report</button>
                         </div>
                     </div>
-                </section>
 
-                <!-- Course Info -->
-                <section class="card">
-                    <div class="card-header">
-                        <span class="card-icon">📚</span>
-                        <h2>Course Info</h2>
-                    </div>
-                    <div class="card-body">
-                        <div class="grid-2">
-                            <div class="field">
-                                <label for="courseCode">Course Code</label>
-                                <input type="text" id="courseCode" name="course_code" placeholder="IRE 460">
+                    <div class="card-surface">
+                        <div class="filter-bar">
+                            <div class="filter-tabs" role="tablist">
+                                <button type="button" class="filter-tab active" data-filter="all" onclick="setReportsFilter('all', this)">All</button>
+                                <button type="button" class="filter-tab" data-filter="completed" onclick="setReportsFilter('completed', this)">Completed</button>
+                                <button type="button" class="filter-tab" data-filter="draft" onclick="setReportsFilter('draft', this)">Drafts</button>
                             </div>
-                            <div class="field">
-                                <label for="courseTitle">Course Title</label>
-                                <input type="text" id="courseTitle" name="course_title" placeholder="Mobile Platform for IoT Devices Sessional">
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Instructor Info -->
-                <section class="card">
-                    <div class="card-header">
-                        <span class="card-icon">👨‍🏫</span>
-                        <h2>Instructor Info</h2>
-                    </div>
-                    <div class="card-body">
-                        <div class="grid-2">
-                            <div class="field">
-                                <label for="instructorName">Instructor Name</label>
-                                <input type="text" id="instructorName" name="instructor_name" placeholder="Md. Rafiqul Islam">
-                            </div>
-                            <div class="field">
-                                <label for="instructorTitle">Designation</label>
-                                <input type="text" id="instructorTitle" name="instructor_title" value="Lecturer">
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Lab Info -->
-                <section class="card">
-                    <div class="card-header">
-                        <span class="card-icon">🧪</span>
-                        <h2>Lab Details</h2>
-                    </div>
-                    <div class="card-body">
-                        <div class="grid-3">
-                            <div class="field">
-                                <label for="labNumber">Lab Number</label>
-                                <input type="number" id="labNumber" name="lab_number" value="1" min="1" max="20">
-                            </div>
-                            <div class="field">
-                                <label for="labTitle">Lab Title</label>
-                                <input type="text" id="labTitle" name="lab_title" placeholder="Object-Oriented Programming">
-                            </div>
-                            <div class="field">
-                                <label for="language">Language</label>
-                                <select id="language" name="language">
-                                    <option value="python">Python</option>
-                                    <option value="dart">Dart</option>
-                                    <option value="c++">C++</option>
-                                    <option value="c">C</option>
-                                    <option value="java">Java</option>
-                                    <option value="javascript">JavaScript</option>
-                                    <option value="kotlin">Kotlin</option>
-                                    <option value="go">Go</option>
-                                    <option value="rust">Rust</option>
+                            <div class="filter-controls">
+                                <input type="text" id="reportsSearchInput" class="input-compact" placeholder="Filter by title or course..." oninput="renderAllReports()">
+                                <select id="reportsLangFilter" class="input-compact" onchange="renderAllReports()">
+                                    <option value="">All Languages</option>
                                 </select>
                             </div>
                         </div>
-                        <div class="field">
-                            <label for="labSubtitle">Lab Subtitle (optional)</label>
-                            <input type="text" id="labSubtitle" name="lab_subtitle" placeholder="e.g. Student Result, Course Registration...">
-                        </div>
-                        <div class="field">
-                            <label for="githubLink">GitHub Link (optional)</label>
-                            <input type="url" id="githubLink" name="github_link" placeholder="https://github.com/username/repo">
+
+                        <div class="table-wrap">
+                            <table class="reports-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Report Title</th>
+                                        <th>Language</th>
+                                        <th>Status</th>
+                                        <th>Updated</th>
+                                        <th class="col-actions">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allReportsBody"></tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
 
-                <!-- Tasks -->
-                <section class="card">
-                    <div class="card-header">
-                        <span class="card-icon">📋</span>
-                        <h2>Tasks</h2>
-                    </div>
-                    <div class="card-body">
-                        <div id="tasksContainer">
-                            <!-- task cards injected here -->
+                <!-- ==================== 4. CODE WORKSPACE VIEW ==================== -->
+                <section class="view" id="view-workspace">
+                    <div class="view-header-bar">
+                        <div>
+                            <h2 class="view-title">Code Workspace</h2>
+                            <p class="view-subtitle">Write, test, and verify your programming lab code before generating your report.</p>
                         </div>
-                        <button type="button" class="btn btn-add" onclick="addTask()">
-                            + Add Task
-                        </button>
+                        <div class="view-header-actions">
+                            <select id="workspaceLang" class="input-compact" onchange="loadWorkspaceSample()"></select>
+                            <button type="button" class="btn btn-surface" onclick="sendWorkspaceToReport()">Use in New Report →</button>
+                            <button type="button" class="btn btn-primary" id="runCodeBtn" onclick="runWorkspaceCode()">▶ Run Code</button>
+                        </div>
+                    </div>
+
+                    <div class="workspace-split">
+                        <div class="card-surface editor-card">
+                            <div class="editor-head">
+                                <span class="editor-filename" id="workspaceFilename">main.py</span>
+                                <div class="editor-tools">
+                                    <button type="button" class="link-btn" onclick="loadWorkspaceSample(true)">Load Sample</button>
+                                    <button type="button" class="link-btn" onclick="copyWorkspaceCode()">Copy</button>
+                                </div>
+                            </div>
+                            <textarea id="workspaceEditor" class="code-editor" spellcheck="false" placeholder="Write your code here..."></textarea>
+                            <div class="stdin-bar">
+                                <label for="workspaceStdin">Standard Input (optional)</label>
+                                <input type="text" id="workspaceStdin" placeholder="Optional stdin lines passed to program...">
+                            </div>
+                        </div>
+
+                        <div class="card-surface terminal-card">
+                            <div class="editor-head">
+                                <span>Console Output</span>
+                                <span class="engine-pill" id="workspaceExecMeta">Ready</span>
+                            </div>
+                            <pre class="terminal-output" id="workspaceOutput">Click "Run Code" to execute your program and inspect stdout here.</pre>
+                        </div>
                     </div>
                 </section>
 
-                <!-- Submit -->
-                <button type="submit" class="btn btn-generate" id="submitBtn">
-                    <span class="btn-text">🚀 Generate Lab Report</span>
-                    <span class="btn-loading" style="display:none">
-                        <span class="spinner"></span>
-                        <span id="progressText">Generating...</span>
-                    </span>
-                </button>
+                <!-- ==================== 5. TEMPLATES VIEW ==================== -->
+                <section class="view" id="view-templates">
+                    <div class="view-header-bar">
+                        <div>
+                            <h2 class="view-title">Lab Report Templates</h2>
+                            <p class="view-subtitle">Start faster with curated programming lab blueprints. One click pre-fills your form.</p>
+                        </div>
+                    </div>
+                    <div class="templates-grid" id="templatesGrid"></div>
+                </section>
 
-            </form>
-        </main>
+                <!-- ==================== 6. ACTIVITY HISTORY VIEW ==================== -->
+                <section class="view" id="view-activity">
+                    <div class="view-header-bar">
+                        <div>
+                            <h2 class="view-title">Activity History</h2>
+                            <p class="view-subtitle">Complete log of generated PDFs, code runs, and workspace actions.</p>
+                        </div>
+                    </div>
+                    <div class="card-surface">
+                        <div class="activity-timeline" id="activityTimeline"></div>
+                    </div>
+                </section>
 
-        <!-- Progress Overlay -->
-        <div id="progressOverlay" class="overlay" style="display:none">
-            <div class="overlay-card">
-                <div class="spinner-large"></div>
-                <h3 id="overlayTitle">Generating Your Report...</h3>
-                <p id="overlayStatus">Sending request to AI...</p>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressBar"></div>
-                </div>
-                <small id="overlayHint">This may take 30-60 seconds depending on the number of tasks.</small>
-            </div>
+                <!-- ==================== 7. SETTINGS VIEW ==================== -->
+                <section class="view" id="view-settings">
+                    <div class="view-header-bar">
+                        <div>
+                            <h2 class="view-title">Workspace Settings</h2>
+                            <p class="view-subtitle">Configure default student profile, university cover info, custom logo, and AI engine.</p>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="card-surface">
+                            <h3 class="card-subtitle">Default Student Profile</h3>
+                            <div class="field">
+                                <label for="setStudentName">Full Name</label>
+                                <input type="text" id="setStudentName" value="Shahriar Alom Masud">
+                            </div>
+                            <div class="field-row-2">
+                                <div class="field">
+                                    <label for="setStudentId">Student ID</label>
+                                    <input type="text" id="setStudentId" value="2201032">
+                                </div>
+                                <div class="field">
+                                    <label for="setSession">Session</label>
+                                    <input type="text" id="setSession" value="2022-2023">
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="setInstructorName">Default Instructor</label>
+                                <input type="text" id="setInstructorName" placeholder="e.g. Farzana Akter">
+                            </div>
+                        </div>
+
+                        <div class="card-surface">
+                            <h3 class="card-subtitle">University &amp; Cover Emblem</h3>
+                            <div class="field">
+                                <label for="setUniversity">University Name</label>
+                                <input type="text" id="setUniversity" value="University of Frontier Technology, Bangladesh">
+                            </div>
+                            <div class="field-row-2">
+                                <div class="field">
+                                    <label for="setUnivShort">Short Form</label>
+                                    <input type="text" id="setUnivShort" value="UFTB">
+                                </div>
+                                <div class="field">
+                                    <label for="setDeptShort">Dept Short</label>
+                                    <input type="text" id="setDeptShort" value="IRE">
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="setDepartment">Department (Full)</label>
+                                <input type="text" id="setDepartment" value="Department of Internet of Things and Robotics Engineering (IRE)">
+                            </div>
+                            <div class="field">
+                                <label for="setFaculty">Faculty</label>
+                                <input type="text" id="setFaculty" value="Faculty of Cyber Physical System Engineering">
+                            </div>
+                            <div class="logo-setting-row">
+                                <img id="settingsLogoPreview" src="/images/uftb.png" alt="Cover Logo Preview" class="logo-preview-thumb">
+                                <div class="logo-setting-actions">
+                                    <strong>Cover Page Emblem</strong>
+                                    <small class="muted-hint">Defaults to official UFTB crest. Upload PNG/JPG to override.</small>
+                                    <div class="logo-btn-row">
+                                        <label class="btn btn-surface btn-sm" for="customLogoInput">Upload Custom Logo</label>
+                                        <input type="file" id="customLogoInput" accept="image/*" hidden onchange="handleCustomLogoUpload(this)">
+                                        <button type="button" class="link-btn" onclick="resetCustomLogo()">Reset to UFTB</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-surface">
+                            <h3 class="card-subtitle">AI Engine &amp; API Key</h3>
+                            <p class="muted-hint" id="settingsEngineInfo">Checking server configuration...</p>
+                            <div class="field" style="margin-top:12px;">
+                                <label for="setGroqKey">Custom Groq API Key (Optional)</label>
+                                <input type="password" id="setGroqKey" placeholder="Leave blank to use server .env key">
+                                <small>Stored only in your browser localStorage and sent only when generating reports.</small>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== 8. HELP & DOCS VIEW ==================== -->
+                <section class="view" id="view-help">
+                    <div class="view-header-bar">
+                        <div>
+                            <h2 class="view-title">Help &amp; Documentation</h2>
+                            <p class="view-subtitle">Everything you need to generate clean, submission-ready academic programming reports.</p>
+                        </div>
+                    </div>
+                    <div class="help-grid">
+                        <div class="card-surface">
+                            <h3 class="card-subtitle">How It Works</h3>
+                            <ol class="help-list">
+                                <li><strong>Choose a template or start fresh</strong> from the Dashboard or Create Report page.</li>
+                                <li><strong>Describe each lab task</strong> (or paste your own code from Code Workspace).</li>
+                                <li><strong>Attach up to 4 screenshots</strong> per task for GUI/OpenGL/Web labs — arranged automatically in a crisp 2×2 LaTeX figure grid.</li>
+                                <li><strong>Compile &amp; export</strong> — the backend writes academic Methodology, Source Code, Execution Output, and Result &amp; Discussion, then compiles with <code>pdflatex</code>.</li>
+                            </ol>
+                        </div>
+                        <div class="card-surface">
+                            <h3 class="card-subtitle">Keyboard Shortcuts &amp; Tips</h3>
+                            <ul class="help-list">
+                                <li><kbd>Ctrl + K</kbd> — Focus global search to jump to any report, template, or view.</li>
+                                <li><kbd>Esc</kbd> — Close PDF preview modal, search dropdown, or notifications.</li>
+                                <li><strong>Multi-Task Reports:</strong> Add multiple tasks in one form — sections automatically renumber to <code>1.1–1.5</code>, <code>2.1–2.5</code>.</li>
+                                <li><strong>Auto-Visualizations:</strong> OpenGL 3D Wireframe Cuboid and 2D DDA/Bresenham tasks automatically generate clean diagrams if you don't upload screenshots.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+            </main>
         </div>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <p>Made with ❤️ by <strong>Lab Report Lagbe!</strong> &mdash; Powered by Groq AI + Piston</p>
-        </footer>
     </div>
+
+    <!-- Generation Progress Overlay -->
+    <div id="progressOverlay" class="modal-overlay" hidden>
+        <div class="progress-modal">
+            <div class="spinner-ring"></div>
+            <h3 id="overlayTitle">Generating Your Lab Report</h3>
+            <p id="overlayStatus">Preparing academic sections and code...</p>
+            <div class="progress-track">
+                <div class="progress-fill" id="progressBar" style="width: 10%"></div>
+            </div>
+            <small class="muted-hint">Typically takes 10–25 seconds including LaTeX compilation.</small>
+        </div>
+    </div>
+
+    <!-- Built-in PDF Preview Modal -->
+    <div id="pdfPreviewModal" class="modal-overlay" hidden>
+        <div class="pdf-modal-card">
+            <div class="pdf-modal-header">
+                <div>
+                    <h3 id="pdfModalTitle">Report Preview</h3>
+                    <small id="pdfModalSub" class="muted-hint">PDF Document</small>
+                </div>
+                <div class="pdf-modal-actions">
+                    <a id="pdfModalDownload" class="btn btn-primary btn-sm" href="#" download>Download PDF</a>
+                    <button type="button" class="icon-btn" onclick="closePdfModal()" aria-label="Close preview">✕</button>
+                </div>
+            </div>
+            <iframe id="pdfModalFrame" class="pdf-iframe" title="PDF Preview"></iframe>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
     <script src="/js/app.js"></script>
 </body>
 </html>
-

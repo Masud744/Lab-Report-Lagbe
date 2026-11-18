@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# install LaTeX (minimal)
+# Install minimal TeX Live packages for LaTeX PDF compilation
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     texlive-base \
@@ -10,14 +10,16 @@ RUN apt-get update && \
 
 WORKDIR /app
 
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy project files
 COPY . .
 
-RUN mkdir -p output
+# Ensure output directory has write permissions for non-root containers (HF Spaces / Render)
+RUN mkdir -p output && chmod -R 777 output
 
 EXPOSE 7860
 
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
-

@@ -5,8 +5,24 @@ services:
     build: .
     ports:
       - "7860:7860"
+    environment:
+      - PISTON_URL=http://piston:2000/api/v2
     env_file:
       - .env
+    depends_on:
+      - piston
     volumes:
       - ./output:/app/output
 
+  # Optional local sandboxed code runner (unlimited & zero API key)
+  piston:
+    image: ghcr.io/engineer-man/piston
+    restart: always
+    privileged: true
+    ports:
+      - "2000:2000"
+    volumes:
+      - piston_data:/piston/data
+
+volumes:
+  piston_data:
