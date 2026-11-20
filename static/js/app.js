@@ -265,6 +265,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupFormSubmit();
     setupEditorTabKey();
     fetchDashboardData();
+    initFirebaseAuth();
 });
 
 // ─── Navigation ───
@@ -1625,5 +1626,393 @@ async function compileReviewedReport() {
     } finally {
         btn.disabled = false;
         btn.textContent = "Compile Final PDF";
+    }
+}
+
+// ==========================================================================
+// Firebase Authentication & User State Controller
+// ==========================================================================
+
+let firebaseApp = null;
+let firebaseAuth = null;
+let firestoreDb = null;
+
+async function initFirebaseAuth() {
+    try {
+        if (typeof firebase === "undefined") {
+            console.warn("Firebase SDK not loaded yet.");
+            return;
+        }
+
+        const res = await fetch("/api/firebase-config");
+        if (!res.ok) return;
+        const cfg = await res.json();
+        if (!cfg.apiKey) return;
+
+        if (!firebase.apps.length) {
+            firebaseApp = firebase.initializeApp(cfg);
+        } else {
+            firebaseApp = firebase.app();
+        }
+
+        firebaseAuth = firebase.auth();
+        firestoreDb = firebase.firestore();
+
+        firebaseAuth.onAuthStateChanged((user) => {
+            handleAuthStateChanged(user);
+        });
+
+        // Close user dropdown when clicking outside
+        document.addEventListener("click", (e) => {
+            const wrap = document.getElementById("userMenuRel");
+            const menu = document.getElementById("userDropdownMenu");
+            if (menu && !menu.hidden && wrap && !wrap.contains(e.target)) {
+                menu.hidden = true;
+            }
+        });
+    } catch (err) {
+        console.error("Firebase auth initialization error:", err);
+    }
+}
+
+function handleAuthStateChanged(user) {
+    state.currentUser = user;
+    const btnSignIn = document.getElementById("btnTopbarSignIn");
+    const userMenu = document.getElementById("userMenuRel");
+    const avatarText = document.getElementById("topbarAvatarText");
+    const avatarImg = document.getElementById("topbarAvatarImg");
+    const sideAvatar = document.getElementById("sidebarAvatar");
+    const sideAvatarImg = document.getElementById("sidebarAvatarImg");
+    const sideName = document.getElementById("sidebarProfileName");
+    const sideSub = document.getElementById("sidebarProfileSub");
+    const dropName = document.getElementById("dropdownUserName");
+    const dropEmail = document.getElementById("dropdownUserEmail");
+    const dropBadge = document.getElementById("dropdownUserBadge");
+    const greetingTitle = document.getElementById("greetingTitle");
+
+    const timeOfDay = getGreetingPeriod();
+
+    if (user) {
+        if (btnSignIn) btnSignIn.hidden = true;
+        if (userMenu) userMenu.hidden = false;
+
+        const displayName = user.displayName || user.email.split("@")[0] || "Student";
+        const firstName = displayName.split(" ")[0];
+        const initials = getInitials(displayName);
+
+        if (greetingTitle) {
+            greetingTitle.textContent = `Good ${timeOfDay}, ${firstName}! 👋`;
+        }
+
+        if (sideName) sideName.textContent = displayName;
+        if (sideSub) sideSub.textContent = user.email;
+        if (dropName) dropName.textContent = displayName;
+        if (dropEmail) dropEmail.textContent = user.email;
+
+        // Avatar handling
+        if (user.photoURL) {
+            if (avatarImg) {
+                avatarImg.src = user.photoURL;
+                avatarImg.hidden = false;
+            }
+            if (avatarText) avatarText.hidden = true;
+            if (sideAvatarImg) {
+                sideAvatarImg.src = user.photoURL;
+                sideAvatarImg.hidden = false;
+            }
+            if (sideAvatar) sideAvatar.hidden = true;
+        } else {
+            if (avatarText) {
+                avatarText.textContent = initials;
+                avatarText.hidden = false;
+            }
+            if (avatarImg) avatarImg.hidden = true;
+            if (sideAvatar) {
+                sideAvatar.textContent = initials;
+                sideAvatar.hidden = false;
+            }
+            if (sideAvatarImg) sideAvatarImg.hidden = true;
+        }
+
+        // Email verification badge
+        if (dropBadge) {
+            if (user.emailVerified) {
+                dropBadge.textContent = "Verified";
+                dropBadge.className = "user-badge badge-verified";
+                dropBadge.onclick = null;
+                dropBadge.style.cursor = "default";
+            } else {
+                dropBadge.textContent = "Unverified • Send Link";
+                dropBadge.className = "user-badge badge-unverified";
+                dropBadge.style.cursor = "pointer";
+                dropBadge.onclick = () => resendVerificationLink();
+            }
+        }
+
+        // Auto-fill student profile from Firestore
+        syncUserProfileFromFirestore(user);
+    } else {
+        if (btnSignIn) btnSignIn.hidden = false;
+        if (userMenu) userMenu.hidden = true;
+        if (greetingTitle) greetingTitle.textContent = `Good ${timeOfDay}, Student! 👋`;
+        if (sideName) sideName.textContent = "Guest Student";
+        if (sideSub) sideSub.textContent = "Click to Sign In";
+        if (sideAvatar) {
+            sideAvatar.textContent = "SM";
+            sideAvatar.hidden = false;
+        }
+        if (sideAvatarImg) sideAvatarImg.hidden = true;
+    }
+}
+
+async function syncUserProfileFromFirestore(user) {
+    if (!firestoreDb || !user) return;
+    try {
+        const userRef = firestoreDb.collection("users").doc(user.uid);
+        const doc = await userRef.get();
+        if (doc.exists) {
+            const data = doc.data();
+            state.userProfile = data;
+            // Pre-fill form inputs if present and currently empty
+            const nameInput = document.getElementById("studentName");
+            const idInput = document.getElementById("studentId");
+            const deptInput = document.getElementById("department");
+            if (nameInput && !nameInput.value && data.displayName) nameInput.value = data.displayName;
+            if (idInput && !idInput.value && data.studentId) idInput.value = data.studentId;
+            if (deptInput && !deptInput.value && data.department) deptInput.value = data.department;
+        } else {
+            // First time Google user: store initial profile
+            await userRef.set({
+                displayName: user.displayName || user.email.split("@")[0],
+                email: user.email,
+                photoUrl: user.photoURL || "",
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            }, { merge: true });
+        }
+    } catch (e) {
+        console.warn("Firestore profile sync notice:", e.message);
+    }
+}
+
+function getGreetingPeriod() {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Morning";
+    if (hour < 17) return "Afternoon";
+    return "Evening";
+}
+
+function getInitials(name) {
+    if (!name) return "ST";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return parts[0].slice(0, 2).toUpperCase();
+}
+
+function openAuthModal(defaultTab = "signin") {
+    switchAuthTab(defaultTab);
+    clearAuthAlert();
+    document.getElementById("authModal").hidden = false;
+}
+
+function closeAuthModal() {
+    document.getElementById("authModal").hidden = true;
+    clearAuthAlert();
+}
+
+function switchAuthTab(tab) {
+    const tabSignIn = document.getElementById("tabSignIn");
+    const tabSignUp = document.getElementById("tabSignUp");
+    const formSignIn = document.getElementById("signInForm");
+    const formSignUp = document.getElementById("signUpForm");
+    const title = document.getElementById("authModalTitle");
+    const sub = document.getElementById("authModalSub");
+
+    clearAuthAlert();
+
+    if (tab === "signup") {
+        tabSignUp.classList.add("active");
+        tabSignIn.classList.remove("active");
+        formSignUp.hidden = false;
+        formSignIn.hidden = true;
+        title.textContent = "Create an Account";
+        sub.textContent = "Join with email or Google to save reports and student profile.";
+    } else {
+        tabSignIn.classList.add("active");
+        tabSignUp.classList.remove("active");
+        formSignIn.hidden = false;
+        formSignUp.hidden = true;
+        title.textContent = "Welcome to Lab Report Lagbe?";
+        sub.textContent = "Sign in with your Google account or email to sync lab reports across devices.";
+    }
+}
+
+function toggleUserDropdown(forceState) {
+    const menu = document.getElementById("userDropdownMenu");
+    if (!menu) return;
+    if (typeof forceState === "boolean") {
+        menu.hidden = !forceState;
+    } else {
+        menu.hidden = !menu.hidden;
+    }
+}
+
+function handleSidebarProfileClick() {
+    if (!state.currentUser) {
+        openAuthModal("signin");
+    } else {
+        navigateTo("settings");
+    }
+}
+
+function showAuthAlert(msg, type = "error") {
+    const banner = document.getElementById("authAlertBanner");
+    if (!banner) return;
+    banner.textContent = msg;
+    banner.className = `auth-alert-box ${type}`;
+    banner.hidden = false;
+}
+
+function clearAuthAlert() {
+    const banner = document.getElementById("authAlertBanner");
+    if (banner) {
+        banner.hidden = true;
+        banner.textContent = "";
+        banner.className = "auth-alert-box";
+    }
+}
+
+async function handleGoogleSignIn() {
+    if (!firebaseAuth) {
+        showToast("Firebase Auth is not ready.", true);
+        return;
+    }
+    const btn = document.getElementById("btnGoogleAuth");
+    btn.disabled = true;
+    clearAuthAlert();
+
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
+        const result = await firebaseAuth.signInWithPopup(provider);
+        closeAuthModal();
+        showToast(`Signed in as ${result.user.displayName || result.user.email}!`);
+    } catch (err) {
+        if (err.code === "auth/popup-closed-by-user") {
+            showAuthAlert("Sign-in window closed before completing.", "warning");
+        } else {
+            showAuthAlert(err.message || "Failed to sign in with Google.");
+        }
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function handleEmailSignIn(event) {
+    event.preventDefault();
+    if (!firebaseAuth) return;
+
+    const email = document.getElementById("authSignInEmail").value.trim();
+    const pass = document.getElementById("authSignInPassword").value;
+    const btn = document.getElementById("btnSubmitSignIn");
+
+    btn.disabled = true;
+    clearAuthAlert();
+
+    try {
+        const result = await firebaseAuth.signInWithEmailAndPassword(email, pass);
+        closeAuthModal();
+        showToast(`Welcome back, ${result.user.displayName || result.user.email}!`);
+    } catch (err) {
+        let msg = "Invalid email or password.";
+        if (err.code === "auth/user-not-found") msg = "No account found with this email.";
+        else if (err.code === "auth/wrong-password") msg = "Incorrect password.";
+        else if (err.code === "auth/too-many-requests") msg = "Too many failed attempts. Try again later.";
+        showAuthAlert(msg, "error");
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function handleEmailSignUp(event) {
+    event.preventDefault();
+    if (!firebaseAuth) return;
+
+    const name = document.getElementById("authSignUpName").value.trim();
+    const studentId = document.getElementById("authSignUpStudentId").value.trim();
+    const dept = document.getElementById("authSignUpDept").value.trim();
+    const email = document.getElementById("authSignUpEmail").value.trim();
+    const pass = document.getElementById("authSignUpPassword").value;
+    const btn = document.getElementById("btnSubmitSignUp");
+
+    btn.disabled = true;
+    clearAuthAlert();
+
+    try {
+        const cred = await firebaseAuth.createUserWithEmailAndPassword(email, pass);
+        const user = cred.user;
+
+        // Set user profile display name
+        await user.updateProfile({ displayName: name });
+
+        // Send email verification link
+        await user.sendEmailVerification();
+
+        // Save initial student details in Firestore
+        if (firestoreDb) {
+            await firestoreDb.collection("users").doc(user.uid).set({
+                displayName: name,
+                studentId: studentId,
+                department: dept,
+                email: email,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            }, { merge: true });
+        }
+
+        showAuthAlert(`Account created! A verification link has been sent to ${email}. Please check your inbox.`, "success");
+        showToast("Verification link sent to your email!");
+    } catch (err) {
+        let msg = err.message;
+        if (err.code === "auth/email-already-in-use") msg = "An account already exists with this email.";
+        else if (err.code === "auth/weak-password") msg = "Password should be at least 6 characters.";
+        else if (err.code === "auth/invalid-email") msg = "Please enter a valid email address.";
+        showAuthAlert(msg, "error");
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function handleForgotPassword() {
+    if (!firebaseAuth) return;
+    const email = document.getElementById("authSignInEmail").value.trim() || prompt("Enter your registered email address:");
+    if (!email) return;
+
+    try {
+        await firebaseAuth.sendPasswordResetEmail(email);
+        showAuthAlert(`Password reset link sent to ${email}. Check your inbox!`, "success");
+        showToast("Password reset email sent.");
+    } catch (err) {
+        showAuthAlert(err.message || "Failed to send password reset email.", "error");
+    }
+}
+
+async function resendVerificationLink() {
+    if (!state.currentUser) return;
+    try {
+        await state.currentUser.sendEmailVerification();
+        showToast("Verification email sent! Please check your inbox.");
+    } catch (err) {
+        showToast(err.message || "Could not send verification email.", true);
+    }
+}
+
+async function handleSignOut() {
+    if (!firebaseAuth) return;
+    try {
+        await firebaseAuth.signOut();
+        showToast("Signed out successfully.");
+    } catch (err) {
+        showToast(err.message || "Sign out failed.", true);
     }
 }

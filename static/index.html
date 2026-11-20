@@ -79,11 +79,12 @@
                     </button>
                 </nav>
 
-                <button type="button" class="profile-card" onclick="navigateTo('settings')" aria-label="Edit student profile">
+                <button type="button" class="profile-card" id="sidebarProfileCard" onclick="handleSidebarProfileClick()" aria-label="Student profile">
                     <div class="avatar-circle" id="sidebarAvatar">SM</div>
+                    <img id="sidebarAvatarImg" src="" alt="Avatar" class="avatar-circle-img" hidden>
                     <div class="profile-meta">
-                        <span class="profile-name" id="sidebarProfileName">Shahriar A. Masud</span>
-                        <span class="profile-sub" id="sidebarProfileSub">IRE, UFTB</span>
+                        <span class="profile-name" id="sidebarProfileName">Guest Student</span>
+                        <span class="profile-sub" id="sidebarProfileSub">Click to Sign In</span>
                     </div>
                     <svg class="profile-chevron" viewBox="0 0 16 16" fill="none"><path d="M4.5 6.5L8 10L11.5 6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
@@ -126,7 +127,38 @@
                         </div>
                     </div>
 
-                    <button type="button" class="avatar-btn" id="topbarAvatar" onclick="navigateTo('settings')" aria-label="Open Settings">SM</button>
+                    <!-- Topbar Auth Controls -->
+                    <div class="topbar-auth-box">
+                        <button type="button" class="btn btn-primary btn-sm btn-signin-nav" id="btnTopbarSignIn" onclick="openAuthModal()">
+                            <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 10C12.21 10 14 8.21 14 6C14 3.79 12.21 2 10 2C7.79 2 6 3.79 6 6C6 8.21 7.79 10 10 10ZM10 12C7.33 12 2 13.34 2 16V18H18V16C18 13.34 12.67 12 10 12Z" fill="currentColor"/></svg>
+                            <span>Sign In</span>
+                        </button>
+
+                        <div class="user-menu-rel" id="userMenuRel" hidden>
+                            <button type="button" class="avatar-btn" id="topbarAvatar" onclick="toggleUserDropdown()" aria-label="Open User Menu">
+                                <span id="topbarAvatarText">SM</span>
+                                <img id="topbarAvatarImg" src="" alt="Avatar" class="avatar-img-circle" hidden>
+                            </button>
+                            <div class="user-dropdown-menu" id="userDropdownMenu" hidden>
+                                <div class="user-dropdown-head">
+                                    <strong id="dropdownUserName">Shahriar Alom Masud</strong>
+                                    <small id="dropdownUserEmail" class="muted-hint">masud.ire32@gmail.com</small>
+                                    <div class="user-badge-row">
+                                        <span class="user-badge badge-verified" id="dropdownUserBadge">Verified</span>
+                                    </div>
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                <button type="button" class="dropdown-item" onclick="navigateTo('settings'); toggleUserDropdown(false);">
+                                    <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M10 12.5C11.38 12.5 12.5 11.38 12.5 10C12.5 8.62 11.38 7.5 10 7.5C8.62 7.5 7.5 8.62 7.5 10C7.5 11.38 8.62 12.5 10 12.5Z" stroke="currentColor" stroke-width="1.6"/><path d="M16.5 10C16.5 9.7 16.48 9.4 16.43 9.1L18.14 7.77C18.3 7.64 18.34 7.42 18.24 7.24L16.63 4.45C16.52 4.27 16.3 4.2 16.12 4.27L14.11 5.08C13.69 4.76 13.23 4.49 12.73 4.29L12.43 2.15C12.4 1.95 12.23 1.8 12.03 1.8H8.81C8.61 1.8 8.44 1.95 8.41 2.15L8.11 4.29C7.61 4.49 7.15 4.76 6.73 5.08L4.72 4.27C4.54 4.2 4.32 4.27 4.21 4.45L2.6 7.24C2.5 7.42 2.54 7.64 2.7 7.77L4.41 9.1C4.36 9.4 4.34 9.7 4.34 10C4.34 10.3 4.36 10.6 4.41 10.9L2.7 12.23C2.54 12.36 2.5 12.58 2.6 12.76L4.21 15.55C4.32 15.73 4.54 15.8 4.72 15.73L6.73 14.92C7.15 15.24 7.61 15.51 8.11 15.71L8.41 17.85C8.44 18.05 8.61 18.2 8.81 18.2H12.03C12.23 18.2 12.4 18.05 12.43 17.85L12.73 15.71C13.23 15.51 13.69 15.24 14.11 14.92L16.12 15.73C16.3 15.8 16.52 15.73 16.63 15.55L18.24 12.76C18.34 12.58 18.3 12.36 18.14 12.23L16.43 10.9C16.48 10.6 16.5 10.3 16.5 10Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+                                    <span>Profile &amp; Settings</span>
+                                </button>
+                                <button type="button" class="dropdown-item dropdown-item-danger" onclick="handleSignOut(); toggleUserDropdown(false);">
+                                    <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M7.5 17.5H4.17C3.73 17.5 3.3 17.32 2.99 17.01C2.68 16.7 2.5 16.27 2.5 15.83V4.17C2.5 3.73 2.68 3.3 2.99 2.99C3.3 2.68 3.73 2.5 4.17 2.5H7.5M13.33 14.17L17.5 10L13.33 5.83M17.5 10H7.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    <span>Sign Out</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </header>
 
@@ -826,8 +858,99 @@
         </div>
     </div>
 
+    <!-- Firebase Authentication Modal -->
+    <div id="authModal" class="modal-overlay" hidden>
+        <div class="auth-modal-card">
+            <button type="button" class="auth-close-btn" onclick="closeAuthModal()" aria-label="Close modal">✕</button>
+
+            <div class="auth-modal-head">
+                <div class="auth-brand-badge">
+                    <img src="/images/app_logo.png" alt="Logo" class="auth-logo-img">
+                </div>
+                <h3 id="authModalTitle">Welcome to Lab Report Lagbe?</h3>
+                <p class="muted-hint" id="authModalSub">Sign in with your Google account or email to sync lab reports, student profile, and drafts across devices.</p>
+            </div>
+
+            <!-- Continue with Google Button -->
+            <button type="button" class="btn-google-auth" id="btnGoogleAuth" onclick="handleGoogleSignIn()">
+                <svg class="google-svg-icon" viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.665-5.17 3.665-9.12z"/>
+                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.13C3.26 21.36 7.33 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.13z"/>
+                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.13c.95-2.83 3.6-4.96 6.72-4.96z"/>
+                </svg>
+                <span>Continue with Google</span>
+            </button>
+
+            <div class="auth-divider">
+                <span>or continue with email</span>
+            </div>
+
+            <!-- Tab Switcher: Sign In vs Sign Up -->
+            <div class="auth-tabs-row">
+                <button type="button" class="auth-tab-pill active" id="tabSignIn" onclick="switchAuthTab('signin')">Sign In</button>
+                <button type="button" class="auth-tab-pill" id="tabSignUp" onclick="switchAuthTab('signup')">Create Account</button>
+            </div>
+
+            <!-- Dynamic Alert / Verification Banner -->
+            <div id="authAlertBanner" class="auth-alert-box" hidden></div>
+
+            <!-- Sign In Form -->
+            <form id="signInForm" onsubmit="handleEmailSignIn(event)">
+                <div class="form-group">
+                    <label for="authSignInEmail">Email Address</label>
+                    <input type="email" id="authSignInEmail" class="form-input" placeholder="student@example.com" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <div class="label-with-hint">
+                        <label for="authSignInPassword">Password</label>
+                        <button type="button" class="link-btn-text" onclick="handleForgotPassword()">Forgot password?</button>
+                    </div>
+                    <input type="password" id="authSignInPassword" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block btn-lg" id="btnSubmitSignIn">
+                    <span>Sign In</span>
+                </button>
+            </form>
+
+            <!-- Sign Up Form -->
+            <form id="signUpForm" onsubmit="handleEmailSignUp(event)" hidden>
+                <div class="form-group">
+                    <label for="authSignUpName">Full Name</label>
+                    <input type="text" id="authSignUpName" class="form-input" placeholder="e.g. Shahriar Alom Masud" required autocomplete="name">
+                </div>
+                <div class="auth-grid-2">
+                    <div class="form-group">
+                        <label for="authSignUpStudentId">Student ID</label>
+                        <input type="text" id="authSignUpStudentId" class="form-input" placeholder="e.g. 2201032" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="authSignUpDept">Department</label>
+                        <input type="text" id="authSignUpDept" class="form-input" placeholder="e.g. IRE" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="authSignUpEmail">Email Address</label>
+                    <input type="email" id="authSignUpEmail" class="form-input" placeholder="your.name@example.com" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="authSignUpPassword">Password (6+ characters)</label>
+                    <input type="password" id="authSignUpPassword" class="form-input" placeholder="••••••••" minlength="6" required autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block btn-lg" id="btnSubmitSignUp">
+                    <span>Create Account &amp; Send Verification Link</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+    <!-- Firebase SDK (v10 compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
     <script src="/js/app.js"></script>
 </body>

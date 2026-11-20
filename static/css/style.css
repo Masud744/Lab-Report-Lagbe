@@ -315,10 +315,11 @@ button {
     margin-left: var(--sidebar-width);
     flex: 1;
     min-width: 0;
+    width: calc(100% - var(--sidebar-width));
     display: flex;
     flex-direction: column;
-    padding: 20px 28px 36px;
-    max-width: 1460px;
+    padding: 22px 32px 40px;
+    box-sizing: border-box;
 }
 
 /* ─── Top Bar ─── */
@@ -711,8 +712,8 @@ button {
 
 .dashboard-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 316px;
-    gap: 20px;
+    grid-template-columns: minmax(0, 1fr) 336px;
+    gap: 22px;
     align-items: start;
 }
 
@@ -737,7 +738,7 @@ button {
 }
 
 .hero-content {
-    max-width: 440px;
+    max-width: 540px;
 }
 
 .hero-heading {
@@ -2265,4 +2266,361 @@ button {
     .review-meth-row {
         grid-template-columns: 1fr;
     }
+}
+
+/* ==========================================================================
+   Firebase Authentication & User Profile Dropdown Styles
+   ========================================================================== */
+
+.topbar-auth-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.btn-signin-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.user-menu-rel {
+    position: relative;
+}
+
+.avatar-img-circle {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.user-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 260px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-float);
+    z-index: 60;
+    overflow: hidden;
+    padding: 6px 0;
+    animation: viewFade 160ms var(--ease);
+}
+
+.user-dropdown-head {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.user-dropdown-head strong {
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-dropdown-head small {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    word-break: break-all;
+}
+
+.user-badge-row {
+    margin-top: 4px;
+}
+
+.user-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.user-badge.badge-verified {
+    background: var(--success-bg);
+    color: var(--success-fg);
+}
+
+.user-badge.badge-unverified {
+    background: var(--amber-bg);
+    color: var(--amber-fg);
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 6px 0;
+}
+
+.dropdown-item {
+    width: 100%;
+    padding: 9px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    background: none;
+    text-align: left;
+    transition: background-color var(--t-fast);
+}
+
+.dropdown-item:hover {
+    background: var(--bg-subtle);
+}
+
+.dropdown-item-danger {
+    color: var(--danger-fg);
+}
+
+.dropdown-item-danger:hover {
+    background: var(--danger-bg);
+}
+
+.avatar-circle-img {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+/* ─── Auth Modal Card ─── */
+.auth-modal-card {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-float);
+    padding: 32px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    animation: viewFade 200ms var(--ease);
+}
+
+.auth-close-btn {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color var(--t-fast);
+}
+
+.auth-close-btn:hover {
+    background: var(--border-subtle);
+    color: var(--text-primary);
+}
+
+.auth-modal-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+}
+
+.auth-brand-badge {
+    width: 140px;
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2px;
+}
+
+.auth-logo-img {
+    max-width: 100%;
+    height: auto;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1));
+}
+
+.auth-modal-head h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+}
+
+.btn-google-auth {
+    width: 100%;
+    height: 44px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-strong);
+    background: #FFFFFF;
+    color: #1F2937;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: background-color var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
+}
+
+.btn-google-auth:hover {
+    background: #F9FAFB;
+    border-color: #9CA3AF;
+    transform: translateY(-1px);
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 4px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.auth-divider span {
+    padding: 0 10px;
+}
+
+.auth-tabs-row {
+    display: flex;
+    background: var(--bg-subtle);
+    padding: 4px;
+    border-radius: var(--radius-md);
+    gap: 4px;
+}
+
+.auth-tab-pill {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: transparent;
+    cursor: pointer;
+    transition: background-color var(--t-fast), color var(--t-fast);
+}
+
+.auth-tab-pill.active {
+    background: var(--bg-surface);
+    color: var(--primary);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.auth-alert-box {
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+.auth-alert-box.success {
+    background: var(--success-bg);
+    color: var(--success-fg);
+    border: 1px solid #A3E6C7;
+}
+
+.auth-alert-box.error {
+    background: var(--danger-bg);
+    color: var(--danger-fg);
+    border: 1px solid #FCA5A5;
+}
+
+.auth-alert-box.warning {
+    background: var(--amber-bg);
+    color: var(--amber-fg);
+    border: 1px solid #FCD34D;
+}
+
+.auth-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.auth-modal-card .field,
+.auth-modal-card .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    text-align: left;
+}
+
+.auth-modal-card label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.auth-modal-card input {
+    width: 100%;
+    height: 42px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    padding: 0 14px;
+    background: var(--bg-surface);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+
+.auth-modal-card input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    outline: none;
+}
+
+.label-with-hint {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.link-btn-text {
+    font-size: 0.78rem;
+    color: var(--accent);
+    font-weight: 600;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.link-btn-text:hover {
+    text-decoration: underline;
+}
+
+.btn-block {
+    width: 100%;
 }

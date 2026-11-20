@@ -1,0 +1,364 @@
+rules_version = '2';
+
+// =============================================================================
+// Lab Report Lagbe? — Production Cloud Firestore Security Rules
+// =============================================================================
+// Assumed Data Model
+// =============================================================================
+//
+// Collection: /users/{userId}
+// Document ID: Firebase Auth UID (userId)
+// Access: Owner only (request.auth.uid == userId)
+// Description: User profile metadata and academic institution defaults.
+// Fields:
+//   - displayName: string (required, 1-100 chars) — Full name of the user/student
+//   - email: string (required, valid email, 3-100 chars) — User's email address
+//   - studentId: string (optional, 0-50 chars) — University student ID number
+//   - department: string (optional, 0-100 chars) — Academic department
+//   - university: string (optional, 0-150 chars) — Enrolled university / institution
+//   - photoUrl: string (optional, valid URL, 0-500 chars) — User avatar or profile picture
+//   - uid: string (optional, 1-128 chars, immutable, must match userId if present)
+//   - id: string (optional, 1-128 chars, immutable, must match userId if present)
+//   - createdAt: timestamp (required, immutable) — Account/profile creation time
+//   - updatedAt: timestamp (required) — Last profile modification time
+//
+// Collection: /users/{userId}/reports/{reportId}
+// Document ID: Unique report identifier (reportId)
+// Access: Owner only (request.auth.uid == userId)
+// Description: Metadata, code, LaTeX sources, and execution outputs for generated reports.
+// Fields:
+//   - id: string (optional, 1-100 chars, immutable) — Matches document ID
+//   - title: string (required, 1-200 chars) — Lab report title
+//   - course_code: string (optional, 0-50 chars) — Course identifier (e.g. CSE-102)
+//   - course_title: string (optional, 0-200 chars) — Full course title
+//   - lab_number: number (optional, 0-1000) — Lab assignment number
+//   - language: string (optional, 0-50 chars) — Target language (e.g. python, c, cpp)
+//   - status: string (optional, enum: pending | generating | completed | failed | draft)
+//   - filename: string (optional, 0-255 chars) — Generated PDF filename
+//   - file_size: number (optional, 0-100000000 bytes) — Compiled file size
+//   - student_name: string (optional, 0-100 chars) — Author student name
+//   - student_id: string (optional, 0-50 chars) — Author student ID
+//   - task_count: number (optional, 0-100) — Number of lab tasks
+//   - engine: string (optional, 0-50 chars) — Generation engine (e.g. groq)
+//   - tasks: list (optional, max 50 items) — Array of task metadata / images
+//   - code: string (optional, 0-100000 chars) — Code snippet / execution script
+//   - latex_source: string (optional, 0-300000 chars) — TeX document source code
+//   - latex_url: string (optional, valid URL, 0-1000 chars) — Link to downloadable TeX archive
+//   - pdf_url: string (optional, valid URL, 0-1000 chars) — Link to compiled PDF
+//   - has_latex_zip: bool (optional) — Flag indicating whether LaTeX bundle is ready
+//   - userId: string (optional, immutable, must match request.auth.uid if present)
+//   - authorId: string (optional, immutable, must match request.auth.uid if present)
+//   - createdAt: timestamp (optional, immutable) — Creation timestamp
+//   - created_at: timestamp (optional, immutable) — Alternate snake_case creation timestamp
+//   - updatedAt: timestamp (optional) — Update timestamp
+//   - updated_at: timestamp (optional) — Alternate snake_case update timestamp
+//
+// Collection: /users/{userId}/drafts/{draftId}
+// Document ID: Unique draft identifier (draftId)
+// Access: Owner only (request.auth.uid == userId)
+// Description: Temporary working drafts for in-progress lab reports.
+// Fields:
+//   - id: string (optional, 0-100 chars, immutable) — Matches draft document ID
+//   - title: string (optional, 0-200 chars) — Working title
+//   - lab_title: string (optional, 0-200 chars) — Working lab title
+//   - student_name: string (optional, 0-100 chars)
+//   - student_id: string (optional, 0-50 chars)
+//   - session: string (optional, 0-50 chars)
+//   - university: string (optional, 0-150 chars)
+//   - university_short: string (optional, 0-50 chars)
+//   - department: string (optional, 0-150 chars)
+//   - department_short: string (optional, 0-50 chars)
+//   - faculty: string (optional, 0-150 chars)
+//   - course_code: string (optional, 0-50 chars)
+//   - course_title: string (optional, 0-200 chars)
+//   - instructor_name: string (optional, 0-100 chars)
+//   - instructor_title: string (optional, 0-100 chars)
+//   - lab_number: number (optional, 0-1000)
+//   - language: string (optional, 0-50 chars)
+//   - github_link: string (optional, 0-500 chars)
+//   - custom_logo: string (optional, 0-1000 chars)
+//   - tasks: list (optional, max 50 items)
+//   - userId: string (optional, immutable, must match request.auth.uid if present)
+//   - authorId: string (optional, immutable, must match request.auth.uid if present)
+//   - createdAt: timestamp (optional, immutable)
+//   - created_at: timestamp (optional, immutable)
+//   - updatedAt: timestamp (optional)
+//   - updated_at: timestamp (optional)
+//
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // Core Helper Functions
+    // =========================================================================
+
+    // Check if the request is from an authenticated user
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the caller matches the document owner UID
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if the given keys are untouched during an update
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Validate email format with standard pattern
+    function isValidEmail(email) {
+      return email is string &&
+        email.size() >= 3 &&
+        email.size() <= 100 &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // Validate standard HTTP/HTTPS URLs
+    function isValidUrl(url) {
+      return url is string &&
+        url.size() <= 1000 &&
+        (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    // Validate timestamp accuracy and guard against forged future/past dates
+    // Allows up to 1-minute future skew and 10-minute recent window
+    function isRecent(time) {
+      return time is timestamp &&
+        time >= request.time - duration.value(10, 'm') &&
+        time <= request.time + duration.value(1, 'm');
+    }
+
+    // =========================================================================
+    // Domain Validator: User Profile
+    // =========================================================================
+
+    function isValidUser(data) {
+      let allowedKeys = [
+        'displayName', 'email', 'studentId', 'department', 'university',
+        'photoUrl', 'uid', 'id', 'createdAt', 'updatedAt'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        // Required fields
+        ('displayName' in data && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100) &&
+        ('email' in data && isValidEmail(data.email)) &&
+        ('createdAt' in data && data.createdAt is timestamp) &&
+        ('updatedAt' in data && data.updatedAt is timestamp) &&
+
+        // Optional fields
+        (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 50)) &&
+        (!('department' in data) || (data.department is string && data.department.size() <= 100)) &&
+        (!('university' in data) || (data.university is string && data.university.size() <= 150)) &&
+        (!('photoUrl' in data) || (isValidUrl(data.photoUrl) && data.photoUrl.size() <= 500)) &&
+        (!('uid' in data) || (data.uid is string && data.uid == request.auth.uid)) &&
+        (!('id' in data) || (data.id is string && data.id == request.auth.uid));
+    }
+
+    function isValidUserCreate(userId) {
+      return isValidUser(request.resource.data) &&
+        isRecent(request.resource.data.createdAt) &&
+        isRecent(request.resource.data.updatedAt) &&
+        (!('uid' in request.resource.data) || request.resource.data.uid == userId) &&
+        (!('id' in request.resource.data) || request.resource.data.id == userId);
+    }
+
+    function isValidUserUpdate() {
+      return isValidUser(request.resource.data) &&
+        isRecent(request.resource.data.updatedAt) &&
+        areImmutableFieldsUnchanged(['createdAt', 'uid', 'id']) &&
+        (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+    }
+
+    // =========================================================================
+    // Domain Validator: Report Document
+    // =========================================================================
+
+    function isValidReportStatusTransition() {
+      return !('status' in request.resource.data) ||
+        !('status' in resource.data) ||
+        request.resource.data.status == resource.data.status ||
+        (resource.data.status == 'pending' && (request.resource.data.status == 'generating' || request.resource.data.status == 'failed')) ||
+        (resource.data.status == 'generating' && (request.resource.data.status == 'completed' || request.resource.data.status == 'failed')) ||
+        (resource.data.status == 'failed' && (request.resource.data.status == 'pending' || request.resource.data.status == 'generating')) ||
+        (resource.data.status == 'draft' && (request.resource.data.status == 'pending' || request.resource.data.status == 'generating' || request.resource.data.status == 'completed'));
+    }
+
+    function isValidReport(data) {
+      let allowedKeys = [
+        'id', 'title', 'course_code', 'course_title', 'lab_number',
+        'language', 'status', 'filename', 'file_size', 'student_name',
+        'student_id', 'task_count', 'engine', 'tasks', 'code',
+        'latex_source', 'latex_url', 'pdf_url', 'has_latex_zip',
+        'userId', 'authorId', 'createdAt', 'created_at', 'updatedAt', 'updated_at'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        // Required fields
+        ('title' in data && data.title is string && data.title.size() >= 1 && data.title.size() <= 200) &&
+        (('createdAt' in data && data.createdAt is timestamp) || ('created_at' in data && data.created_at is timestamp)) &&
+
+        // Optional fields with bounded types & DoS limits
+        (!('id' in data) || (data.id is string && data.id.size() <= 100)) &&
+        (!('course_code' in data) || (data.course_code is string && data.course_code.size() <= 50)) &&
+        (!('course_title' in data) || (data.course_title is string && data.course_title.size() <= 200)) &&
+        (!('lab_number' in data) || (data.lab_number is number && data.lab_number >= 0 && data.lab_number <= 1000)) &&
+        (!('language' in data) || (data.language is string && data.language.size() <= 50)) &&
+        (!('status' in data) || (data.status is string && data.status in ['pending', 'generating', 'completed', 'failed', 'draft'])) &&
+        (!('filename' in data) || (data.filename is string && data.filename.size() <= 255)) &&
+        (!('file_size' in data) || (data.file_size is number && data.file_size >= 0 && data.file_size <= 100000000)) &&
+        (!('student_name' in data) || (data.student_name is string && data.student_name.size() <= 100)) &&
+        (!('student_id' in data) || (data.student_id is string && data.student_id.size() <= 50)) &&
+        (!('task_count' in data) || (data.task_count is number && data.task_count >= 0 && data.task_count <= 100)) &&
+        (!('engine' in data) || (data.engine is string && data.engine.size() <= 50)) &&
+        (!('tasks' in data) || (data.tasks is list && data.tasks.size() <= 50)) &&
+        (!('code' in data) || (data.code is string && data.code.size() <= 100000)) &&
+        (!('latex_source' in data) || (data.latex_source is string && data.latex_source.size() <= 300000)) &&
+        (!('latex_url' in data) || isValidUrl(data.latex_url)) &&
+        (!('pdf_url' in data) || isValidUrl(data.pdf_url)) &&
+        (!('has_latex_zip' in data) || data.has_latex_zip is bool) &&
+        (!('userId' in data) || (data.userId is string && data.userId == request.auth.uid)) &&
+        (!('authorId' in data) || (data.authorId is string && data.authorId == request.auth.uid)) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+        (!('updated_at' in data) || data.updated_at is timestamp);
+    }
+
+    function isValidReportCreate(userId, reportId) {
+      return isValidReport(request.resource.data) &&
+        (!('createdAt' in request.resource.data) || isRecent(request.resource.data.createdAt)) &&
+        (!('created_at' in request.resource.data) || isRecent(request.resource.data.created_at)) &&
+        (!('id' in request.resource.data) || request.resource.data.id == reportId) &&
+        (!('userId' in request.resource.data) || request.resource.data.userId == userId) &&
+        (!('authorId' in request.resource.data) || request.resource.data.authorId == userId);
+    }
+
+    function isValidReportUpdate() {
+      return isValidReport(request.resource.data) &&
+        isValidReportStatusTransition() &&
+        areImmutableFieldsUnchanged(['createdAt', 'created_at', 'id', 'userId', 'authorId']) &&
+        (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt) &&
+        (!('created_at' in resource.data) || request.resource.data.created_at == resource.data.created_at) &&
+        (!('updatedAt' in request.resource.data) || isRecent(request.resource.data.updatedAt)) &&
+        (!('updated_at' in request.resource.data) || isRecent(request.resource.data.updated_at));
+    }
+
+    // =========================================================================
+    // Domain Validator: Draft Document
+    // =========================================================================
+
+    function isValidDraft(data) {
+      let allowedKeys = [
+        'id', 'title', 'lab_title', 'student_name', 'student_id',
+        'session', 'university', 'university_short', 'department',
+        'department_short', 'faculty', 'course_code', 'course_title',
+        'instructor_name', 'instructor_title', 'lab_number', 'language',
+        'github_link', 'custom_logo', 'tasks', 'userId', 'authorId',
+        'createdAt', 'created_at', 'updatedAt', 'updated_at'
+      ];
+
+      return data.keys().hasOnly(allowedKeys) &&
+        (!('id' in data) || (data.id is string && data.id.size() <= 100)) &&
+        (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
+        (!('lab_title' in data) || (data.lab_title is string && data.lab_title.size() <= 200)) &&
+        (!('student_name' in data) || (data.student_name is string && data.student_name.size() <= 100)) &&
+        (!('student_id' in data) || (data.student_id is string && data.student_id.size() <= 50)) &&
+        (!('session' in data) || (data.session is string && data.session.size() <= 50)) &&
+        (!('university' in data) || (data.university is string && data.university.size() <= 150)) &&
+        (!('university_short' in data) || (data.university_short is string && data.university_short.size() <= 50)) &&
+        (!('department' in data) || (data.department is string && data.department.size() <= 150)) &&
+        (!('department_short' in data) || (data.department_short is string && data.department_short.size() <= 50)) &&
+        (!('faculty' in data) || (data.faculty is string && data.faculty.size() <= 150)) &&
+        (!('course_code' in data) || (data.course_code is string && data.course_code.size() <= 50)) &&
+        (!('course_title' in data) || (data.course_title is string && data.course_title.size() <= 200)) &&
+        (!('instructor_name' in data) || (data.instructor_name is string && data.instructor_name.size() <= 100)) &&
+        (!('instructor_title' in data) || (data.instructor_title is string && data.instructor_title.size() <= 100)) &&
+        (!('lab_number' in data) || (data.lab_number is number && data.lab_number >= 0 && data.lab_number <= 1000)) &&
+        (!('language' in data) || (data.language is string && data.language.size() <= 50)) &&
+        (!('github_link' in data) || (data.github_link is string && data.github_link.size() <= 500)) &&
+        (!('custom_logo' in data) || (data.custom_logo is string && data.custom_logo.size() <= 1000)) &&
+        (!('tasks' in data) || (data.tasks is list && data.tasks.size() <= 50)) &&
+        (!('userId' in data) || (data.userId is string && data.userId == request.auth.uid)) &&
+        (!('authorId' in data) || (data.authorId is string && data.authorId == request.auth.uid)) &&
+        (!('createdAt' in data) || data.createdAt is timestamp) &&
+        (!('created_at' in data) || data.created_at is timestamp) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+        (!('updated_at' in data) || data.updated_at is timestamp);
+    }
+
+    function isValidDraftCreate(userId, draftId) {
+      return isValidDraft(request.resource.data) &&
+        (!('createdAt' in request.resource.data) || isRecent(request.resource.data.createdAt)) &&
+        (!('created_at' in request.resource.data) || isRecent(request.resource.data.created_at)) &&
+        (!('id' in request.resource.data) || request.resource.data.id == draftId) &&
+        (!('userId' in request.resource.data) || request.resource.data.userId == userId) &&
+        (!('authorId' in request.resource.data) || request.resource.data.authorId == userId);
+    }
+
+    function isValidDraftUpdate() {
+      return isValidDraft(request.resource.data) &&
+        areImmutableFieldsUnchanged(['createdAt', 'created_at', 'id', 'userId', 'authorId']) &&
+        (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt) &&
+        (!('created_at' in resource.data) || request.resource.data.created_at == resource.data.created_at) &&
+        (!('updatedAt' in request.resource.data) || isRecent(request.resource.data.updatedAt)) &&
+        (!('updated_at' in request.resource.data) || isRecent(request.resource.data.updated_at));
+    }
+
+    // =========================================================================
+    // Match Rules
+    // =========================================================================
+
+    // Default deny all access across the entire database
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // User profiles collection
+    match /users/{userId} {
+      // User can only read their own profile (strictly isolated; prevents PII exposure)
+      allow read: if isOwner(userId);
+
+      // Authenticated user can create their own profile with validated schema
+      allow create: if isOwner(userId) && isValidUserCreate(userId);
+
+      // Authenticated owner can update profile while preserving immutability of core fields
+      allow update: if isOwner(userId) && isValidUserUpdate();
+
+      // Authenticated owner can delete their profile
+      allow delete: if isOwner(userId);
+
+      // Reports subcollection
+      match /reports/{reportId} {
+        // Strictly private: only report owner can read their lab reports
+        allow read: if isOwner(userId);
+
+        // Owner can create reports adhering to the schema and limits
+        allow create: if isOwner(userId) && isValidReportCreate(userId, reportId);
+
+        // Owner can update report metadata/status transitions
+        allow update: if isOwner(userId) && isValidReportUpdate();
+
+        // Owner can delete their own lab reports
+        allow delete: if isOwner(userId);
+      }
+
+      // Drafts subcollection
+      match /drafts/{draftId} {
+        // Strictly private: only owner can read their temporary drafts
+        allow read: if isOwner(userId);
+
+        // Owner can save drafts with bounded fields
+        allow create: if isOwner(userId) && isValidDraftCreate(userId, draftId);
+
+        // Owner can update existing drafts
+        allow update: if isOwner(userId) && isValidDraftUpdate();
+
+        // Owner can delete drafts
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
+
