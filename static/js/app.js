@@ -548,10 +548,10 @@ function renderReportRow(item, idx) {
             <button type="button" class="action-icon-btn" title="Preview PDF" onclick="openPdfPreview('${item.id}', '${escapeAttr(item.title)}', '${escapeAttr(item.course_title || "")}', ${Boolean(item.has_latex_zip)})">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M2.5 10C4.2 6.8 6.8 5.2 10 5.2C13.2 5.2 15.8 6.8 17.5 10C15.8 13.2 13.2 14.8 10 14.8C6.8 14.8 4.2 13.2 2.5 10Z" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="10" r="2.3" stroke="currentColor" stroke-width="1.6"/></svg>
             </button>
-            <a class="action-icon-btn" title="Download PDF" href="/api/reports/${item.id}/file" download>
+            <button type="button" class="action-icon-btn" title="Download PDF" onclick="downloadReportDirect('${item.id}')">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 3.5V12.5M10 12.5L6.8 9.3M10 12.5L13.2 9.3M4 15.8H16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </a>
-            ${item.has_latex_zip ? `<a class="tex-action-btn" title="Download Overleaf LaTeX .zip" href="/api/reports/${item.id}/latex" download>TeX</a>` : ""}
+            </button>
+            ${item.has_latex_zip ? `<button type="button" class="tex-action-btn" title="Download Overleaf LaTeX .zip" onclick="downloadLatexDirect('${item.id}')">TeX</button>` : ""}
             <button type="button" class="action-icon-btn danger" title="Delete Report" onclick="deleteReport('${item.id}')">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4.5 6H15.5M8 6V4H12V6M6.5 6V16H13.5V6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
@@ -642,6 +642,12 @@ async function deleteReport(id) {
 
 // ─── PDF Preview Modal ───
 function openPdfPreview(reportId, title, sub, hasLatexZip = false) {
+    if (!ensureAuthenticated("Sign in or create an account to preview and download your complete PDF report.", () => {
+        openPdfPreview(reportId, title, sub, hasLatexZip);
+    })) {
+        return;
+    }
+
     document.getElementById("pdfModalTitle").textContent = title || "Lab Report Preview";
     document.getElementById("pdfModalSub").textContent = sub || "Compiled LaTeX PDF";
     document.getElementById("pdfModalDownload").href = `/api/reports/${reportId}/file`;
@@ -1073,6 +1079,12 @@ function setupFormSubmit() {
         }
         if (!payload.tasks.length) {
             showToast("Please add at least one lab task.", true);
+            return;
+        }
+
+        if (!ensureAuthenticated("Sign in or create an account to compile and download your lab report PDF.", () => {
+            document.getElementById("submitBtn").click();
+        })) {
             return;
         }
 
@@ -1562,6 +1574,11 @@ function closeReviewModal() {
 
 async function compileReviewedReport() {
     if (!state.preparedReport) return;
+    if (!ensureAuthenticated("Sign in or create an account to compile and download your final reviewed PDF report.", () => {
+        compileReviewedReport();
+    })) {
+        return;
+    }
     const btn = document.getElementById("compileFinalBtn");
     btn.disabled = true;
     btn.textContent = "Compiling PDF...";
@@ -1689,12 +1706,19 @@ function handleAuthStateChanged(user) {
     const dropEmail = document.getElementById("dropdownUserEmail");
     const dropBadge = document.getElementById("dropdownUserBadge");
     const greetingTitle = document.getElementById("greetingTitle");
+    const verifBanner = document.getElementById("emailVerificationBanner");
 
     const timeOfDay = getGreetingPeriod();
 
     if (user) {
-        if (btnSignIn) btnSignIn.hidden = true;
-        if (userMenu) userMenu.hidden = false;
+        if (btnSignIn) {
+            btnSignIn.hidden = true;
+            btnSignIn.style.display = "none";
+        }
+        if (userMenu) {
+            userMenu.hidden = false;
+            userMenu.style.display = "block";
+        }
 
         const displayName = user.displayName || user.email.split("@")[0] || "Student";
         const firstName = displayName.split(" ")[0];
@@ -1734,9 +1758,10 @@ function handleAuthStateChanged(user) {
             if (sideAvatarImg) sideAvatarImg.hidden = true;
         }
 
-        // Email verification badge
+        // Email verification handling
+        const isPasswordAuth = user.providerData?.some((p) => p.providerId === "password");
         if (dropBadge) {
-            if (user.emailVerified) {
+            if (user.emailVerified || !isPasswordAuth) {
                 dropBadge.textContent = "Verified";
                 dropBadge.className = "user-badge badge-verified";
                 dropBadge.onclick = null;
@@ -1749,11 +1774,36 @@ function handleAuthStateChanged(user) {
             }
         }
 
-        // Auto-fill student profile from Firestore
+        if (verifBanner) {
+            if (!user.emailVerified && isPasswordAuth) {
+                verifBanner.hidden = false;
+                verifBanner.style.display = "flex";
+                const emailSpan = document.getElementById("verifEmailText");
+                if (emailSpan) emailSpan.textContent = user.email;
+            } else {
+                verifBanner.hidden = true;
+                verifBanner.style.display = "none";
+            }
+        }
+
+        updateProfileHeroCard(user);
         syncUserProfileFromFirestore(user);
+
+        // Resume pending user action if waiting for auth
+        if (state.pendingAuthAction) {
+            const pending = state.pendingAuthAction;
+            state.pendingAuthAction = null;
+            setTimeout(() => pending(), 300);
+        }
     } else {
-        if (btnSignIn) btnSignIn.hidden = false;
-        if (userMenu) userMenu.hidden = true;
+        if (btnSignIn) {
+            btnSignIn.hidden = false;
+            btnSignIn.style.display = "inline-flex";
+        }
+        if (userMenu) {
+            userMenu.hidden = true;
+            userMenu.style.display = "none";
+        }
         if (greetingTitle) greetingTitle.textContent = `Good ${timeOfDay}, Student! 👋`;
         if (sideName) sideName.textContent = "Guest Student";
         if (sideSub) sideSub.textContent = "Click to Sign In";
@@ -1762,6 +1812,139 @@ function handleAuthStateChanged(user) {
             sideAvatar.hidden = false;
         }
         if (sideAvatarImg) sideAvatarImg.hidden = true;
+        if (verifBanner) {
+            verifBanner.hidden = true;
+            verifBanner.style.display = "none";
+        }
+
+        updateProfileHeroCard(null);
+    }
+}
+
+function updateProfileHeroCard(user) {
+    const cardName = document.getElementById("profCardName");
+    const cardEmail = document.getElementById("profCardEmail");
+    const cardBadge = document.getElementById("profCardBadge");
+    const tagProvider = document.getElementById("profTagProvider");
+    const tagReports = document.getElementById("profTagReports");
+    const tagSync = document.getElementById("profTagSync");
+    const avatar = document.getElementById("profCardAvatar");
+    const avatarImg = document.getElementById("profCardAvatarImg");
+    const btnSignIn = document.getElementById("btnProfSignIn");
+    const btnSignOut = document.getElementById("btnProfSignOut");
+    const btnResetPass = document.getElementById("btnProfResetPass");
+
+    if (!cardName) return;
+
+    if (user) {
+        const isGoogle = user.providerData?.some((p) => p.providerId === "google.com");
+        const displayName = user.displayName || user.email.split("@")[0] || "Student";
+        const initials = getInitials(displayName);
+
+        cardName.textContent = displayName;
+        cardEmail.textContent = user.email;
+
+        if (user.emailVerified || isGoogle) {
+            cardBadge.textContent = "Verified Student";
+            cardBadge.className = "user-badge badge-verified";
+        } else {
+            cardBadge.textContent = "Email Unverified";
+            cardBadge.className = "user-badge badge-unverified";
+        }
+
+        if (tagProvider) tagProvider.textContent = isGoogle ? "Provider: Google Account" : "Provider: Email / Password";
+        if (tagReports) tagReports.textContent = `Total Reports: ${state.stats?.total_reports || state.reports?.length || 0}`;
+        if (tagSync) tagSync.textContent = "Cloud Sync: Active";
+
+        if (user.photoURL) {
+            if (avatarImg) {
+                avatarImg.src = user.photoURL;
+                avatarImg.hidden = false;
+            }
+            if (avatar) avatar.hidden = true;
+        } else {
+            if (avatar) {
+                avatar.textContent = initials;
+                avatar.hidden = false;
+            }
+            if (avatarImg) avatarImg.hidden = true;
+        }
+
+        if (btnSignIn) btnSignIn.hidden = true;
+        if (btnSignOut) btnSignOut.hidden = false;
+        if (btnResetPass) btnResetPass.hidden = isGoogle;
+    } else {
+        cardName.textContent = "Guest Student";
+        cardEmail.textContent = "Sign in to save reports and sync student profile across all devices.";
+        cardBadge.textContent = "Guest Mode";
+        cardBadge.className = "user-badge";
+
+        if (tagProvider) tagProvider.textContent = "Provider: Local Guest";
+        if (tagReports) tagReports.textContent = `Total Reports: ${state.stats?.total_reports || state.reports?.length || 0}`;
+        if (tagSync) tagSync.textContent = "Cloud Sync: Off";
+
+        if (avatar) {
+            avatar.textContent = "SM";
+            avatar.hidden = false;
+        }
+        if (avatarImg) avatarImg.hidden = true;
+
+        if (btnSignIn) btnSignIn.hidden = false;
+        if (btnSignOut) btnSignOut.hidden = true;
+        if (btnResetPass) btnResetPass.hidden = true;
+    }
+}
+
+// ─── Authentication Gatekeeper (Soft Wall) ───
+function ensureAuthenticated(actionDescription, callback) {
+    if (!state.currentUser) {
+        state.pendingAuthAction = callback;
+        openAuthModal("signup", actionDescription || "Sign in or create an account in 10 seconds to download and save your PDF report.");
+        showToast("Please sign in or create an account to view or download reports.", true);
+        return false;
+    }
+
+    const isPasswordAuth = state.currentUser.providerData?.some((p) => p.providerId === "password");
+    if (!state.currentUser.emailVerified && isPasswordAuth) {
+        showToast("Please verify your email address before downloading your PDF. Check your inbox!", true);
+        const banner = document.getElementById("emailVerificationBanner");
+        if (banner) {
+            banner.hidden = false;
+            banner.style.display = "flex";
+            banner.scrollIntoView({ behavior: "smooth" });
+        }
+        return false;
+    }
+
+    if (callback) callback();
+    return true;
+}
+
+function downloadReportDirect(reportId) {
+    ensureAuthenticated("Sign in or create an account to download your PDF report.", () => {
+        window.location.href = `/api/reports/${reportId}/file`;
+    });
+}
+
+function downloadLatexDirect(reportId) {
+    ensureAuthenticated("Sign in or create an account to download Overleaf LaTeX source.", () => {
+        window.location.href = `/api/reports/${reportId}/latex`;
+    });
+}
+
+async function checkEmailVerificationStatus() {
+    if (!state.currentUser) return;
+    try {
+        await state.currentUser.reload();
+        const updated = firebase.auth().currentUser;
+        handleAuthStateChanged(updated);
+        if (updated.emailVerified) {
+            showToast("Your email address is verified! Full access unlocked.");
+        } else {
+            showToast("Email not verified yet. Please click the link in your inbox or spam folder.", true);
+        }
+    } catch (err) {
+        showToast(err.message || "Failed to check verification status.", true);
     }
 }
 
@@ -1773,15 +1956,21 @@ async function syncUserProfileFromFirestore(user) {
         if (doc.exists) {
             const data = doc.data();
             state.userProfile = data;
-            // Pre-fill form inputs if present and currently empty
             const nameInput = document.getElementById("studentName");
             const idInput = document.getElementById("studentId");
             const deptInput = document.getElementById("department");
             if (nameInput && !nameInput.value && data.displayName) nameInput.value = data.displayName;
             if (idInput && !idInput.value && data.studentId) idInput.value = data.studentId;
             if (deptInput && !deptInput.value && data.department) deptInput.value = data.department;
+
+            // Settings view inputs
+            const setName = document.getElementById("setStudentName");
+            const setId = document.getElementById("setStudentId");
+            const setDept = document.getElementById("setDepartment");
+            if (setName && data.displayName) setName.value = data.displayName;
+            if (setId && data.studentId) setId.value = data.studentId;
+            if (setDept && data.department) setDept.value = data.department;
         } else {
-            // First time Google user: store initial profile
             await userRef.set({
                 displayName: user.displayName || user.email.split("@")[0],
                 email: user.email,
@@ -1809,9 +1998,13 @@ function getInitials(name) {
     return parts[0].slice(0, 2).toUpperCase();
 }
 
-function openAuthModal(defaultTab = "signin") {
+function openAuthModal(defaultTab = "signin", customSub = "") {
     switchAuthTab(defaultTab);
     clearAuthAlert();
+    if (customSub) {
+        const sub = document.getElementById("authModalSub");
+        if (sub) sub.textContent = customSub;
+    }
     document.getElementById("authModal").hidden = false;
 }
 
@@ -1836,7 +2029,7 @@ function switchAuthTab(tab) {
         formSignUp.hidden = false;
         formSignIn.hidden = true;
         title.textContent = "Create an Account";
-        sub.textContent = "Join with email or Google to save reports and student profile.";
+        sub.textContent = "Join with email or Google to download and save your lab reports.";
     } else {
         tabSignIn.classList.add("active");
         tabSignUp.classList.remove("active");
@@ -1970,7 +2163,7 @@ async function handleEmailSignUp(event) {
             }, { merge: true });
         }
 
-        showAuthAlert(`Account created! A verification link has been sent to ${email}. Please check your inbox.`, "success");
+        showAuthAlert(`Account created! A verification link has been sent to ${email}. Please check your inbox and verify your email.`, "success");
         showToast("Verification link sent to your email!");
     } catch (err) {
         let msg = err.message;

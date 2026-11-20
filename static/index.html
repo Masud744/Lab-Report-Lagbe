@@ -162,6 +162,21 @@
                 </div>
             </header>
 
+            <!-- Verification Alert Banner for Email users -->
+            <div id="emailVerificationBanner" class="verification-alert-banner" hidden>
+                <div class="verif-banner-content">
+                    <svg viewBox="0 0 20 20" fill="none" width="22" height="22" class="verif-icon"><path d="M2.5 5.83A1.67 1.67 0 0 1 4.17 4.17h11.66A1.67 1.67 0 0 1 17.5 5.83v8.34A1.67 1.67 0 0 1 15.83 15.83H4.17A1.67 1.67 0 0 1 2.5 14.17V5.83Z" stroke="currentColor" stroke-width="1.6"/><path d="m2.5 5.83 7.5 5 7.5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <div>
+                        <strong>Please verify your email address (<span id="verifEmailText"></span>)</strong>
+                        <span>Click the confirmation link sent to your inbox to unlock all features.</span>
+                    </div>
+                </div>
+                <div class="verif-banner-actions">
+                    <button type="button" class="btn btn-sm btn-surface" onclick="resendVerificationLink()">Resend Link</button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="checkEmailVerificationStatus()">I Have Verified</button>
+                </div>
+            </div>
+
             <!-- Views Container -->
             <main class="views-root">
                 <!-- ==================== 1. DASHBOARD VIEW ==================== -->
@@ -698,10 +713,37 @@
                 <section class="view" id="view-settings">
                     <div class="view-header-bar">
                         <div>
-                            <h2 class="view-title">Workspace Settings</h2>
-                            <p class="view-subtitle">Configure default student profile, university cover info, custom logo, and AI engine.</p>
+                            <h2 class="view-title">Profile &amp; Settings</h2>
+                            <p class="view-subtitle">Manage your student profile, cloud account, and university cover branding.</p>
                         </div>
                         <button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+                    </div>
+
+                    <!-- User Account / Profile Hero Card -->
+                    <div class="card-surface profile-hero-card" id="profileAccountCard">
+                        <div class="profile-hero-main">
+                            <div class="profile-hero-avatar-wrap">
+                                <div class="profile-hero-avatar" id="profCardAvatar">SM</div>
+                                <img id="profCardAvatarImg" src="" alt="Profile Photo" class="profile-hero-avatar-img" hidden>
+                            </div>
+                            <div class="profile-hero-details">
+                                <div class="profile-hero-name-row">
+                                    <h3 id="profCardName">Guest Student</h3>
+                                    <span class="user-badge" id="profCardBadge">Guest Mode</span>
+                                </div>
+                                <p class="muted-hint" id="profCardEmail">Sign in to save reports and sync across devices.</p>
+                                <div class="profile-meta-tags">
+                                    <span class="profile-tag" id="profTagProvider">Provider: Local</span>
+                                    <span class="profile-tag" id="profTagReports">Total Reports: 0</span>
+                                    <span class="profile-tag" id="profTagSync">Cloud Sync: Off</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="profile-hero-actions" id="profCardActions">
+                            <button type="button" class="btn btn-primary btn-sm" id="btnProfSignIn" onclick="openAuthModal()">Sign In / Connect</button>
+                            <button type="button" class="btn btn-surface btn-sm" id="btnProfResetPass" onclick="handleForgotPassword()" hidden>Reset Password</button>
+                            <button type="button" class="btn btn-danger-soft btn-sm" id="btnProfSignOut" onclick="handleSignOut()" hidden>Sign Out</button>
+                        </div>
                     </div>
 
                     <div class="settings-grid">
