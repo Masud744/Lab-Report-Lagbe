@@ -2,6 +2,19 @@
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
+  },
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Lab Report Lagbe?",
+        "supportEmail": "masud.ire32@gmail.com",
+        "authorizedRedirectUris": [
+          "https://lab-report-lagbe.firebaseapp.com/__/auth/handler",
+          "http://localhost:7860"
+        ]
+      }
+    }
   }
 }
 
