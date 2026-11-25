@@ -1998,6 +1998,7 @@ button {
     }
     .workspace-main {
         margin-left: 0;
+        width: 100%;
         padding: 16px 16px 32px;
     }
     .mobile-menu-btn {
@@ -2405,6 +2406,8 @@ button {
     position: relative;
     width: 100%;
     max-width: 440px;
+    max-height: 92dvh;
+    overflow-y: auto;
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-xl);

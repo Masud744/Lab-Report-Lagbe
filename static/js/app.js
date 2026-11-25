@@ -349,11 +349,14 @@ function renderAllDynamicViews() {
     // Engine status pills
     updateEngineStatusUI();
 
-    // Tables, Calendar, Notifications, Activity
+    // Tables, Calendar, Notifications, Activity, Profile Card
     renderRecentReportsTable();
     renderAllReports();
     renderCalendar();
     renderActivityViews();
+    if (typeof updateProfileHeroCard === "function") {
+        updateProfileHeroCard(state.currentUser);
+    }
 }
 
 function updateEngineStatusUI() {
@@ -396,11 +399,14 @@ function applySettingsToUI() {
         ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
         : shortName.slice(0, 2).toUpperCase();
 
-    document.getElementById("greetingTitle").textContent = `${greet}, ${shortName}! 👋`;
-    document.getElementById("sidebarProfileName").textContent = cfg.studentName || "Student";
-    document.getElementById("sidebarProfileSub").textContent = `${cfg.departmentShort || "IRE"}, ${cfg.universityShort || "UFTB"}`;
-    document.getElementById("sidebarAvatar").textContent = initials;
-    document.getElementById("topbarAvatar").textContent = initials;
+    if (!state.currentUser) {
+        document.getElementById("greetingTitle").textContent = `${greet}, Student! 👋`;
+        document.getElementById("sidebarProfileName").textContent = "Guest Student";
+        document.getElementById("sidebarProfileSub").textContent = "Click to Sign In";
+        document.getElementById("sidebarAvatar").textContent = initials;
+        const avatarText = document.getElementById("topbarAvatarText");
+        if (avatarText) avatarText.textContent = initials;
+    }
 
     // Populate Settings inputs
     document.getElementById("setStudentName").value = cfg.studentName;
@@ -432,7 +438,7 @@ function applySettingsToUI() {
     }
 }
 
-function saveSettings() {
+async function saveSettings() {
     const existing = loadSettings();
     const cfg = {
         ...existing,
@@ -450,6 +456,45 @@ function saveSettings() {
     persistSettings(cfg);
     applySettingsToUI();
     updateEngineStatusUI();
+
+    if (state.currentUser && firestoreDb && typeof firebase !== "undefined") {
+        try {
+            const user = state.currentUser;
+            const userRef = firestoreDb.collection("users").doc(user.uid);
+            const snap = await userRef.get();
+            const ts = firebase.firestore.FieldValue.serverTimestamp();
+            if (snap.exists) {
+                await userRef.update({
+                    displayName: cfg.studentName.slice(0, 100),
+                    studentId: cfg.studentId.slice(0, 50),
+                    department: cfg.department.slice(0, 100),
+                    university: cfg.university.slice(0, 150),
+                    updatedAt: ts,
+                });
+            } else {
+                const docData = {
+                    displayName: cfg.studentName.slice(0, 100),
+                    email: user.email,
+                    studentId: cfg.studentId.slice(0, 50),
+                    department: cfg.department.slice(0, 100),
+                    university: cfg.university.slice(0, 150),
+                    createdAt: ts,
+                    updatedAt: ts,
+                };
+                if (user.photoURL && /^https?:\/\//.test(user.photoURL)) {
+                    docData.photoUrl = user.photoURL.slice(0, 500);
+                }
+                await userRef.set(docData);
+            }
+            if (cfg.studentName && cfg.studentName !== user.displayName) {
+                await user.updateProfile({ displayName: cfg.studentName });
+            }
+            handleAuthStateChanged(firebaseAuth.currentUser || user);
+        } catch (err) {
+            console.warn("Could not sync settings to Firestore:", err.message);
+        }
+    }
+
     showToast("Workspace settings saved.");
 }
 
@@ -1083,7 +1128,7 @@ function setupFormSubmit() {
         }
 
         if (!ensureAuthenticated("Sign in or create an account to compile and download your lab report PDF.", () => {
-            document.getElementById("submitBtn").click();
+            document.getElementById("reportForm").requestSubmit();
         })) {
             return;
         }
@@ -1342,6 +1387,8 @@ function setupKeyboardShortcuts() {
         if (e.key === "Escape") {
             closePdfModal();
             closeReviewModal();
+            closeAuthModal();
+            toggleUserDropdown(false);
             document.getElementById("globalSearchResults").hidden = true;
             toggleNotifications(false);
             closeMobileSidebar();
@@ -1789,11 +1836,11 @@ function handleAuthStateChanged(user) {
         updateProfileHeroCard(user);
         syncUserProfileFromFirestore(user);
 
-        // Resume pending user action if waiting for auth
-        if (state.pendingAuthAction) {
+        // Resume pending user action only once email is verified (or using OAuth provider)
+        if (state.pendingAuthAction && (user.emailVerified || !isPasswordAuth)) {
             const pending = state.pendingAuthAction;
             state.pendingAuthAction = null;
-            setTimeout(() => pending(), 300);
+            setTimeout(() => pending(), 250);
         }
     } else {
         if (btnSignIn) {
@@ -1896,9 +1943,9 @@ function updateProfileHeroCard(user) {
 }
 
 // ─── Authentication Gatekeeper (Soft Wall) ───
-function ensureAuthenticated(actionDescription, callback) {
+function ensureAuthenticated(actionDescription, retryCallback) {
     if (!state.currentUser) {
-        state.pendingAuthAction = callback;
+        state.pendingAuthAction = typeof retryCallback === "function" ? retryCallback : null;
         openAuthModal("signup", actionDescription || "Sign in or create an account in 10 seconds to download and save your PDF report.");
         showToast("Please sign in or create an account to view or download reports.", true);
         return false;
@@ -1906,6 +1953,7 @@ function ensureAuthenticated(actionDescription, callback) {
 
     const isPasswordAuth = state.currentUser.providerData?.some((p) => p.providerId === "password");
     if (!state.currentUser.emailVerified && isPasswordAuth) {
+        state.pendingAuthAction = typeof retryCallback === "function" ? retryCallback : null;
         showToast("Please verify your email address before downloading your PDF. Check your inbox!", true);
         const banner = document.getElementById("emailVerificationBanner");
         if (banner) {
@@ -1916,20 +1964,34 @@ function ensureAuthenticated(actionDescription, callback) {
         return false;
     }
 
-    if (callback) callback();
     return true;
 }
 
+function triggerFileDownload(url) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+}
+
 function downloadReportDirect(reportId) {
-    ensureAuthenticated("Sign in or create an account to download your PDF report.", () => {
-        window.location.href = `/api/reports/${reportId}/file`;
-    });
+    if (!ensureAuthenticated("Sign in or create an account to download your PDF report.", () => {
+        downloadReportDirect(reportId);
+    })) {
+        return;
+    }
+    triggerFileDownload(`/api/reports/${reportId}/file`);
 }
 
 function downloadLatexDirect(reportId) {
-    ensureAuthenticated("Sign in or create an account to download Overleaf LaTeX source.", () => {
-        window.location.href = `/api/reports/${reportId}/latex`;
-    });
+    if (!ensureAuthenticated("Sign in or create an account to download Overleaf LaTeX source.", () => {
+        downloadLatexDirect(reportId);
+    })) {
+        return;
+    }
+    triggerFileDownload(`/api/reports/${reportId}/latex`);
 }
 
 async function checkEmailVerificationStatus() {
@@ -1959,9 +2021,9 @@ async function syncUserProfileFromFirestore(user) {
             const nameInput = document.getElementById("studentName");
             const idInput = document.getElementById("studentId");
             const deptInput = document.getElementById("department");
-            if (nameInput && !nameInput.value && data.displayName) nameInput.value = data.displayName;
-            if (idInput && !idInput.value && data.studentId) idInput.value = data.studentId;
-            if (deptInput && !deptInput.value && data.department) deptInput.value = data.department;
+            if (nameInput && data.displayName) nameInput.value = data.displayName;
+            if (idInput && data.studentId) idInput.value = data.studentId;
+            if (deptInput && data.department) deptInput.value = data.department;
 
             // Settings view inputs
             const setName = document.getElementById("setStudentName");
@@ -1971,13 +2033,17 @@ async function syncUserProfileFromFirestore(user) {
             if (setId && data.studentId) setId.value = data.studentId;
             if (setDept && data.department) setDept.value = data.department;
         } else {
-            await userRef.set({
-                displayName: user.displayName || user.email.split("@")[0],
+            const ts = firebase.firestore.FieldValue.serverTimestamp();
+            const docData = {
+                displayName: (user.displayName || user.email.split("@")[0] || "Student").slice(0, 100),
                 email: user.email,
-                photoUrl: user.photoURL || "",
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            }, { merge: true });
+                createdAt: ts,
+                updatedAt: ts,
+            };
+            if (user.photoURL && /^https?:\/\//.test(user.photoURL)) {
+                docData.photoUrl = user.photoURL.slice(0, 500);
+            }
+            await userRef.set(docData);
         }
     } catch (e) {
         console.warn("Firestore profile sync notice:", e.message);
@@ -2008,9 +2074,12 @@ function openAuthModal(defaultTab = "signin", customSub = "") {
     document.getElementById("authModal").hidden = false;
 }
 
-function closeAuthModal() {
+function closeAuthModal(clearPending = true) {
     document.getElementById("authModal").hidden = true;
     clearAuthAlert();
+    if (clearPending) {
+        state.pendingAuthAction = null;
+    }
 }
 
 function switchAuthTab(tab) {
@@ -2088,7 +2157,7 @@ async function handleGoogleSignIn() {
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({ prompt: "select_account" });
         const result = await firebaseAuth.signInWithPopup(provider);
-        closeAuthModal();
+        closeAuthModal(false);
         showToast(`Signed in as ${result.user.displayName || result.user.email}!`);
     } catch (err) {
         if (err.code === "auth/popup-closed-by-user") {
@@ -2114,12 +2183,12 @@ async function handleEmailSignIn(event) {
 
     try {
         const result = await firebaseAuth.signInWithEmailAndPassword(email, pass);
-        closeAuthModal();
+        closeAuthModal(false);
         showToast(`Welcome back, ${result.user.displayName || result.user.email}!`);
     } catch (err) {
         let msg = "Invalid email or password.";
         if (err.code === "auth/user-not-found") msg = "No account found with this email.";
-        else if (err.code === "auth/wrong-password") msg = "Incorrect password.";
+        else if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") msg = "Invalid email or password.";
         else if (err.code === "auth/too-many-requests") msg = "Too many failed attempts. Try again later.";
         showAuthAlert(msg, "error");
     } finally {
@@ -2151,17 +2220,21 @@ async function handleEmailSignUp(event) {
         // Send email verification link
         await user.sendEmailVerification();
 
-        // Save initial student details in Firestore
+        // Save initial student details in Firestore using server timestamps (matches firestore.rules)
         if (firestoreDb) {
+            const ts = firebase.firestore.FieldValue.serverTimestamp();
             await firestoreDb.collection("users").doc(user.uid).set({
-                displayName: name,
-                studentId: studentId,
-                department: dept,
+                displayName: name.slice(0, 100),
+                studentId: studentId.slice(0, 50),
+                department: dept.slice(0, 100),
                 email: email,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            }, { merge: true });
+                createdAt: ts,
+                updatedAt: ts,
+            });
         }
+
+        // Refresh UI state with updated displayName immediately
+        handleAuthStateChanged(firebaseAuth.currentUser || user);
 
         showAuthAlert(`Account created! A verification link has been sent to ${email}. Please check your inbox and verify your email.`, "success");
         showToast("Verification link sent to your email!");
@@ -2203,6 +2276,7 @@ async function resendVerificationLink() {
 async function handleSignOut() {
     if (!firebaseAuth) return;
     try {
+        state.pendingAuthAction = null;
         await firebaseAuth.signOut();
         showToast("Signed out successfully.");
     } catch (err) {
