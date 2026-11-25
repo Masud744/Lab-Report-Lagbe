@@ -86,27 +86,27 @@ def _sanitize_text(text: str) -> str:
     return "".join(safe_chars)
 
 
+_LATEX_ESCAPE_MAP = {
+    '\\': r'\textbackslash{}',
+    '&': r'\&',
+    '%': r'\%',
+    '$': r'\$',
+    '#': r'\#',
+    '_': r'\_',
+    '{': r'\{',
+    '}': r'\}',
+    '~': r'\textasciitilde{}',
+    '^': r'\textasciicircum{}',
+}
+_LATEX_ESCAPE_RE = re.compile(r'([\\&%$#_{}~^])')
+
+
 def _escape_latex(text: str) -> str:
-    """Sanitize unicode and escape special LaTeX characters in user-supplied text."""
+    """Sanitize unicode and escape special LaTeX characters in a single pass."""
     if not text:
         return ""
     text = _sanitize_text(text)
-    # Order matters: backslash first
-    text = text.replace('\\', r'\textbackslash{}')
-    replacements = {
-        '&': r'\&',
-        '%': r'\%',
-        '$': r'\$',
-        '#': r'\#',
-        '_': r'\_',
-        '{': r'\{',
-        '}': r'\}',
-        '~': r'\textasciitilde{}',
-        '^': r'\textasciicircum{}',
-    }
-    for char, replacement in replacements.items():
-        text = text.replace(char, replacement)
-    return text
+    return _LATEX_ESCAPE_RE.sub(lambda m: _LATEX_ESCAPE_MAP[m.group(1)], text)
 
 
 _DANGEROUS_TEX_RE = re.compile(
@@ -359,12 +359,18 @@ class LaTeXGenerator:
             # Check if code should be rendered in 2-column mode
             code_text = _clean_code_and_output(task.get("code", ""))
             use_multicol = len(code_text.splitlines()) > 45
+            safe_requirements = [
+                _escape_latex(r) for r in task.get("requirements", []) if str(r or "").strip()
+            ]
+            filtered_methodology = [
+                m for m in safe_methodology if m.get("title") or m.get("description")
+            ]
 
             safe_tasks.append({
                 "title": _escape_latex(task.get("title", "")),
                 "problem_overview": _escape_latex(task.get("problem_overview") or task.get("description", "")),
-                "requirements": [_escape_latex(r) for r in task.get("requirements", [])],
-                "methodology": safe_methodology,
+                "requirements": safe_requirements,
+                "methodology": filtered_methodology,
                 "filename": _escape_latex(task.get("filename") or f"main.{'py' if lang == 'python' else 'dart'}"),
                 "code": code_text,
                 "use_multicol": use_multicol,
@@ -378,24 +384,39 @@ class LaTeXGenerator:
         meta_title = "".join(c for c in _sanitize_text(raw_title) if c.isalnum() or c in " -_:.")
         meta_author = "".join(c for c in _sanitize_text(data.get("student_name", "")) if c.isalnum() or c.isspace())
 
+        university = str(data.get("university") or "University of Frontier Technology, Bangladesh").strip()
+        university_short = str(data.get("university_short") or "UFTB").strip()
+        department = str(data.get("department") or "Department of Internet of Things and Robotics Engineering (IRE)").strip()
+        department_short = str(data.get("department_short") or "IRE").strip()
+        faculty = str(data.get("faculty") or "Faculty of Cyber Physical System Engineering").strip()
+        course_code = str(data.get("course_code") or "").strip()
+        course_title = str(data.get("course_title") or "").strip()
+        lab_title = str(data.get("lab_title") or "").strip()
+
         template = self.env.get_template("report_template.tex")
         rendered = template.render(
             student_name=_escape_latex(data.get("student_name", "")),
             student_id=_escape_latex(data.get("student_id", "")),
             session=_escape_latex(data.get("session", "")),
-            university=_escape_latex(data.get("university", "University of Frontier Technology, Bangladesh")),
-            university_short=_escape_latex(data.get("university_short", "UFTB")),
-            department=_escape_latex(data.get("department", "Department of Internet of Things and Robotics Engineering (IRE)")),
-            department_short=_escape_latex(data.get("department_short", "IRE")),
-            faculty=_escape_latex(data.get("faculty", "Faculty of Cyber Physical System Engineering")),
-            course_code=_escape_latex(data.get("course_code", "")),
-            course_title=_escape_latex(data.get("course_title", "")),
-            instructor_name=_escape_latex(data.get("instructor_name", "")),
-            instructor_title=_escape_latex(data.get("instructor_title", "")),
-            lab_number=data.get("lab_number", 1),
-            lab_title=_escape_latex(data.get("lab_title", "")),
+            university=_escape_latex(university),
+            university_upper=_escape_latex(university.upper()),
+            university_short=_escape_latex(university_short),
+            department=_escape_latex(department),
+            department_upper=_escape_latex(department.upper()),
+            department_short=_escape_latex(department_short),
+            faculty=_escape_latex(faculty),
+            faculty_upper=_escape_latex(faculty.upper()),
+            course_code=_escape_latex(course_code),
+            course_code_upper=_escape_latex(course_code.upper()),
+            course_title=_escape_latex(course_title),
+            course_title_upper=_escape_latex(course_title.upper()),
+            instructor_name=_escape_latex(str(data.get("instructor_name") or "").strip()),
+            instructor_title=_escape_latex(str(data.get("instructor_title") or "").strip()),
+            lab_number=int(data.get("lab_number") or 1),
+            lab_title=_escape_latex(lab_title),
+            lab_title_upper=_escape_latex(lab_title.upper()),
             github_link=_sanitize_github_url(data.get("github_link", "")),
-            github_link_display=_escape_latex(data.get("github_link", "").strip()),
+            github_link_display=_escape_latex(str(data.get("github_link") or "").strip()),
             date_str=today,
             meta_title=meta_title,
             meta_author=meta_author,

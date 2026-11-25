@@ -108,28 +108,35 @@
             \includegraphics[width=3.6cm]{logo.png}\\[0.4cm]
         }{}
     }
-    {\normalsize \textbf{<< university|upper >>}}\\[0.16cm]
-    {\footnotesize \textbf{<< department|upper >>}}\\[0.14cm]
-    {\footnotesize << faculty|upper >>}\\[0.55cm]
+    <% if university_upper %>{\normalsize \textbf{<< university_upper >>}}\\[0.16cm]<% endif %>
+    <% if department_upper %>{\footnotesize \textbf{<< department_upper >>}}\\[0.14cm]<% endif %>
+    <% if faculty_upper %>{\footnotesize << faculty_upper >>}\\[0.55cm]<% else %>\vspace{0.55cm}<% endif %>
 
     \noindent\rule{0.88\textwidth}{0.85pt}\\[0.85cm]
 
     {\large \textbf{LAB REPORT << '%02d'|format(lab_number|int) >>}}\\[0.25cm]
-    {\normalsize \textbf{<< lab_title|upper >>}}\\[0.85cm]
+    <% if lab_title_upper %>{\normalsize \textbf{<< lab_title_upper >>}}\\[0.85cm]<% else %>\vspace{0.6cm}<% endif %>
 
-    {\normalsize \textbf{COURSE CODE: << course_code|upper >>}}\\[0.18cm]
-    {\normalsize \textbf{COURSE TITLE: << course_title|upper >>}}\\[1.0cm]
+    <% if course_code_upper %>{\normalsize \textbf{COURSE CODE: << course_code_upper >>}}\\[0.18cm]<% endif %>
+    <% if course_title_upper %>{\normalsize \textbf{COURSE TITLE: << course_title_upper >>}}\\[1.0cm]<% else %>\vspace{0.8cm}<% endif %>
 
     {\small \textbf{\underline{SUBMITTED BY:}}}\\[0.22cm]
-    {\large \textbf{<< student_name >>}}\\[0.14cm]
-    {\small Student ID: \textbf{<< student_id >>} \quad $\vert$ \quad Session: << session >>}\\[0.1cm]
-    {\footnotesize << department >>, << university_short >>}\\[0.95cm]
+    <% if student_name %>{\large \textbf{<< student_name >>}}\\[0.14cm]<% endif %>
+    <% if student_id or session %>{\small <% if student_id %>Student ID: \textbf{<< student_id >>}<% endif %><% if student_id and session %> \quad $\vert$ \quad <% endif %><% if session %>Session: << session >><% endif %>}\\[0.1cm]<% endif %>
+    <% if department or university_short %>{\footnotesize << department >><% if department and university_short %>, <% endif %><< university_short >>}\\[0.95cm]<% else %>\vspace{0.95cm}<% endif %>
 
+    <% if instructor_name %>
     {\small \textbf{\underline{SUBMITTED TO:}}}\\[0.22cm]
     {\large \textbf{<< instructor_name >>}}\\[0.14cm]
-    {\small << instructor_title >>}\\[0.1cm]
-    {\footnotesize << department >>}\\[0.08cm]
-    {\footnotesize << university >>}
+    <% if instructor_title %>{\small << instructor_title >>}\\[0.1cm]<% endif %>
+    <% if department %>{\footnotesize << department >>}\\[0.08cm]<% endif %>
+    <% if university %>{\footnotesize << university >>}<% endif %>
+    <% elif instructor_title or department or university %>
+    {\small \textbf{\underline{SUBMITTED TO:}}}\\[0.22cm]
+    {\large \textbf{<< instructor_title or 'Course Instructor' >>}}\\[0.14cm]
+    <% if department %>{\footnotesize << department >>}\\[0.08cm]<% endif %>
+    <% if university %>{\footnotesize << university >>}<% endif %>
+    <% endif %>
 
     \vfill
     {\footnotesize << date_str >>}

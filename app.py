@@ -346,7 +346,8 @@ def _compile_and_persist(report_data: dict, owner_uid: str = "") -> FileResponse
 
     try:
         pdf_path = latex_gen.compile_pdf(report_data, pdf_filename)
-    except Exception:
+    except Exception as exc:
+        print(f"[CompileError] {type(exc).__name__}: {exc}", flush=True)
         raise HTTPException(status_code=500, detail="PDF compilation failed due to invalid formatting.")
 
     tasks = report_data.get("tasks", [])
