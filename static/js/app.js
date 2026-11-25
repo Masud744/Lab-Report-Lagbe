@@ -209,7 +209,39 @@ const state = {
     taskCounter: 0,
     taskImages: {}, // { taskId: [{ data, caption }] }
     activeDraftId: null,
+    activePreviewId: null,
+    previewBlobUrl: null,
+    lastLoadedAuthUid: undefined,
 };
+
+// ─── Security Helpers & Authenticated Fetch ───
+function sanitizeImageSrc(src) {
+    const val = String(src || "").trim();
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/i.test(val)) {
+        return val;
+    }
+    return "/images/uftb.png";
+}
+
+function safeHexColor(color) {
+    const val = String(color || "").trim();
+    return /^#[0-9A-Fa-f]{3,8}$/.test(val) ? val : "#0B4F4A";
+}
+
+async function authFetch(url, options = {}) {
+    const headers = new Headers(options.headers || {});
+    if (state.currentUser && typeof state.currentUser.getIdToken === "function") {
+        try {
+            const token = await state.currentUser.getIdToken();
+            if (token) {
+                headers.set("Authorization", `Bearer ${token}`);
+            }
+        } catch (err) {
+            console.warn("Could not attach auth token:", err);
+        }
+    }
+    return fetch(url, { ...options, headers });
+}
 
 // ─── Settings & Drafts LocalStorage Helpers ───
 function loadSettings() {
@@ -299,7 +331,7 @@ function closeMobileSidebar() {
 // ─── Fetch Dashboard & Backend Data ───
 async function fetchDashboardData() {
     try {
-        const res = await fetch("/api/dashboard");
+        const res = await authFetch("/api/dashboard");
         if (!res.ok) return;
         const data = await res.json();
         state.reports = data.recent_reports || [];
@@ -308,7 +340,7 @@ async function fetchDashboardData() {
         state.engine = data.engine || state.engine;
 
         // Fetch full list for My Reports view
-        const allRes = await fetch("/api/reports");
+        const allRes = await authFetch("/api/reports");
         if (allRes.ok) {
             const allData = await allRes.json();
             state.reports = allData.reports || state.reports;
@@ -549,10 +581,11 @@ function renderSupportedLanguageChips() {
     const container = document.getElementById("supportedLangChips");
     container.innerHTML = FEATURED_LANGS.map((key) => {
         const m = LANG_META[key];
+        const safeKey = escapeAttr(key);
         return `
-            <button type="button" class="lang-chip-btn" onclick="startFreshReport('${key}')">
-                <span class="lang-chip-badge" style="background:${m.color}">${m.short}</span>
-                <span>${m.label}</span>
+            <button type="button" class="lang-chip-btn" onclick="startFreshReport('${safeKey}')">
+                <span class="lang-chip-badge" style="background:${safeHexColor(m.color)}">${escapeHtml(m.short)}</span>
+                <span>${escapeHtml(m.label)}</span>
             </button>
         `;
     }).join("");
@@ -576,28 +609,29 @@ function getMergedReports() {
 
 function renderReportRow(item, idx) {
     const lang = LANG_META[item.language] || { label: item.language || "Code", color: "#0B4F4A" };
+    const safeId = escapeAttr(String(item.id || "").replace(/[^A-Za-z0-9_-]/g, ""));
     const statusHtml = item.isDraft
         ? `<span class="status-pill status-draft">○ Draft</span>`
         : `<span class="status-pill status-completed">✓ Completed</span>`;
 
     const actionsHtml = item.isDraft
         ? `
-            <button type="button" class="action-icon-btn" title="Resume Draft" onclick="resumeDraft('${item.id}')">
+            <button type="button" class="action-icon-btn" title="Resume Draft" onclick="resumeDraft('${safeId}')">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M13.5 3.5L16.5 6.5L7 16H4V13L13.5 3.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
             </button>
-            <button type="button" class="action-icon-btn danger" title="Delete Draft" onclick="deleteDraft('${item.id}')">
+            <button type="button" class="action-icon-btn danger" title="Delete Draft" onclick="deleteDraft('${safeId}')">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4.5 6H15.5M8 6V4H12V6M6.5 6V16H13.5V6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
         `
         : `
-            <button type="button" class="action-icon-btn" title="Preview PDF" onclick="openPdfPreview('${item.id}', '${escapeAttr(item.title)}', '${escapeAttr(item.course_title || "")}', ${Boolean(item.has_latex_zip)})">
+            <button type="button" class="action-icon-btn" title="Preview PDF" onclick="openPdfPreviewById('${safeId}')">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M2.5 10C4.2 6.8 6.8 5.2 10 5.2C13.2 5.2 15.8 6.8 17.5 10C15.8 13.2 13.2 14.8 10 14.8C6.8 14.8 4.2 13.2 2.5 10Z" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="10" r="2.3" stroke="currentColor" stroke-width="1.6"/></svg>
             </button>
-            <button type="button" class="action-icon-btn" title="Download PDF" onclick="downloadReportDirect('${item.id}')">
+            <button type="button" class="action-icon-btn" title="Download PDF" onclick="downloadReportDirect('${safeId}')">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 3.5V12.5M10 12.5L6.8 9.3M10 12.5L13.2 9.3M4 15.8H16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-            ${item.has_latex_zip ? `<button type="button" class="tex-action-btn" title="Download Overleaf LaTeX .zip" onclick="downloadLatexDirect('${item.id}')">TeX</button>` : ""}
-            <button type="button" class="action-icon-btn danger" title="Delete Report" onclick="deleteReport('${item.id}')">
+            ${item.has_latex_zip ? `<button type="button" class="tex-action-btn" title="Download Overleaf LaTeX .zip" onclick="downloadLatexDirect('${safeId}')">TeX</button>` : ""}
+            <button type="button" class="action-icon-btn danger" title="Delete Report" onclick="deleteReport('${safeId}')">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4.5 6H15.5M8 6V4H12V6M6.5 6V16H13.5V6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
         `;
@@ -611,7 +645,7 @@ function renderReportRow(item, idx) {
             </td>
             <td>
                 <span class="lang-pill">
-                    <span class="lang-dot" style="background:${lang.color}"></span>
+                    <span class="lang-dot" style="background:${safeHexColor(lang.color)}"></span>
                     ${escapeHtml(lang.label)}
                 </span>
             </td>
@@ -675,9 +709,16 @@ function renderAllReports() {
 }
 
 async function deleteReport(id) {
+    if (!ensureAuthenticated("Sign in to delete reports from your workspace.", () => deleteReport(id))) {
+        return;
+    }
     try {
-        const res = await fetch(`/api/reports/${id}`, { method: "DELETE" });
-        if (!res.ok) throw new Error("Could not delete report");
+        const res = await authFetch(`/api/reports/${encodeURIComponent(id)}`, { method: "DELETE" });
+        if (!res.ok) {
+            let msg = "Could not delete report";
+            try { msg = (await res.json()).detail || msg; } catch {}
+            throw new Error(msg);
+        }
         showToast("Report deleted.");
         fetchDashboardData();
     } catch (e) {
@@ -685,33 +726,75 @@ async function deleteReport(id) {
     }
 }
 
+function openPdfPreviewById(reportId) {
+    const rep = state.reports.find((r) => r.id === reportId);
+    openPdfPreview(
+        reportId,
+        rep?.title || "Lab Report Preview",
+        rep?.course_title || "Compiled LaTeX PDF",
+        Boolean(rep?.has_latex_zip)
+    );
+}
+
 // ─── PDF Preview Modal ───
-function openPdfPreview(reportId, title, sub, hasLatexZip = false) {
+async function openPdfPreview(reportId, title, sub, hasLatexZip = false) {
     if (!ensureAuthenticated("Sign in or create an account to preview and download your complete PDF report.", () => {
         openPdfPreview(reportId, title, sub, hasLatexZip);
     })) {
         return;
     }
 
+    state.activePreviewId = reportId;
     document.getElementById("pdfModalTitle").textContent = title || "Lab Report Preview";
     document.getElementById("pdfModalSub").textContent = sub || "Compiled LaTeX PDF";
-    document.getElementById("pdfModalDownload").href = `/api/reports/${reportId}/file`;
     const latexBtn = document.getElementById("pdfModalLatex");
     const repMeta = state.reports.find((r) => r.id === reportId);
     const showLatex = Boolean(hasLatexZip || repMeta?.has_latex_zip);
-    if (showLatex) {
-        latexBtn.href = `/api/reports/${reportId}/latex`;
-        latexBtn.hidden = false;
-    } else {
-        latexBtn.hidden = true;
+    if (latexBtn) latexBtn.hidden = !showLatex;
+
+    const frame = document.getElementById("pdfModalFrame");
+    if (state.previewBlobUrl) {
+        URL.revokeObjectURL(state.previewBlobUrl);
+        state.previewBlobUrl = null;
     }
-    document.getElementById("pdfModalFrame").src = `/api/reports/${reportId}/file?inline=1`;
+    frame.src = "about:blank";
     document.getElementById("pdfPreviewModal").hidden = false;
+
+    try {
+        const res = await authFetch(`/api/reports/${encodeURIComponent(reportId)}/file?inline=1`);
+        if (!res.ok) {
+            let msg = `Unable to load PDF preview (HTTP ${res.status})`;
+            try { msg = (await res.json()).detail || msg; } catch {}
+            throw new Error(msg);
+        }
+        if (typeof res.blob === "function") {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            state.previewBlobUrl = url;
+            frame.src = url;
+        }
+    } catch (err) {
+        showToast(err.message || "Failed to load PDF preview.", true);
+        closePdfModal();
+    }
+}
+
+function downloadActivePreviewPdf() {
+    if (state.activePreviewId) downloadReportDirect(state.activePreviewId);
+}
+
+function downloadActivePreviewLatex() {
+    if (state.activePreviewId) downloadLatexDirect(state.activePreviewId);
 }
 
 function closePdfModal() {
     document.getElementById("pdfPreviewModal").hidden = true;
     document.getElementById("pdfModalFrame").src = "about:blank";
+    state.activePreviewId = null;
+    if (state.previewBlobUrl) {
+        URL.revokeObjectURL(state.previewBlobUrl);
+        state.previewBlobUrl = null;
+    }
 }
 
 // ─── Interactive Calendar ───
@@ -991,9 +1074,9 @@ function renderTaskImagePreviews(tid) {
     const imgs = state.taskImages[tid] || [];
     grid.innerHTML = imgs.map((img, idx) => `
         <div class="image-preview-item">
-            <button type="button" class="image-remove-btn" onclick="removeTaskImage('${tid}', ${idx})" aria-label="Remove image">×</button>
-            <img src="${img.data}" alt="Figure ${idx + 1}">
-            <input type="text" value="${escapeAttr(img.caption)}" placeholder="Figure caption..." oninput="updateTaskImageCaption('${tid}', ${idx}, this.value)">
+            <button type="button" class="image-remove-btn" onclick="removeTaskImage('${escapeAttr(tid)}', ${idx})" aria-label="Remove image">×</button>
+            <img src="${sanitizeImageSrc(img.data)}" alt="Figure ${idx + 1}">
+            <input type="text" value="${escapeAttr(img.caption)}" placeholder="Figure caption..." oninput="updateTaskImageCaption('${escapeAttr(tid)}', ${idx}, this.value)">
         </div>
     `).join("");
 }
@@ -1158,7 +1241,7 @@ function setupFormSubmit() {
         }, 3500);
 
         try {
-            const res = await fetch("/api/generate", {
+            const res = await authFetch("/api/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -1274,7 +1357,7 @@ async function runWorkspaceCode() {
             if (data.images && data.images.length) {
                 plotsEl.innerHTML = data.images.map((im) => `
                     <div class="workspace-plot-item">
-                        <img src="${im.data}" alt="${escapeAttr(im.caption || "Plot")}">
+                        <img src="${sanitizeImageSrc(im.data)}" alt="${escapeAttr(im.caption || "Plot")}">
                         <span>${escapeHtml(im.caption || "Generated Plot")}</span>
                     </div>
                 `).join("");
@@ -1561,7 +1644,7 @@ function renderReviewModal(report) {
                     <div class="review-figs-grid">
                         ${t.images.map((im, fi) => `
                             <div class="review-fig-card">
-                                <img src="${im.data}" alt="Figure ${fi + 1}">
+                                <img src="${sanitizeImageSrc(im.data)}" alt="Figure ${fi + 1}">
                                 <input type="text" class="rev-fig-cap" data-fig-idx="${fi}" value="${escapeAttr(im.caption || "")}" placeholder="Figure caption">
                             </div>
                         `).join("")}
@@ -1651,7 +1734,7 @@ async function compileReviewedReport() {
             });
         });
 
-        const res = await fetch("/api/compile", {
+        const res = await authFetch("/api/compile", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(edited),
@@ -1836,6 +1919,11 @@ function handleAuthStateChanged(user) {
         updateProfileHeroCard(user);
         syncUserProfileFromFirestore(user);
 
+        if (state.lastLoadedAuthUid !== user.uid) {
+            state.lastLoadedAuthUid = user.uid;
+            fetchDashboardData();
+        }
+
         // Resume pending user action only once email is verified (or using OAuth provider)
         if (state.pendingAuthAction && (user.emailVerified || !isPasswordAuth)) {
             const pending = state.pendingAuthAction;
@@ -1865,6 +1953,11 @@ function handleAuthStateChanged(user) {
         }
 
         updateProfileHeroCard(null);
+
+        if (state.lastLoadedAuthUid !== null) {
+            state.lastLoadedAuthUid = null;
+            fetchDashboardData();
+        }
     }
 }
 
@@ -1967,13 +2060,26 @@ function ensureAuthenticated(actionDescription, retryCallback) {
     return true;
 }
 
-function triggerFileDownload(url) {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+async function triggerAuthenticatedDownload(url, fallbackFilename) {
+    try {
+        const res = await authFetch(url);
+        if (!res.ok) {
+            let msg = `Download failed (HTTP ${res.status})`;
+            try { msg = (await res.json()).detail || msg; } catch {}
+            throw new Error(msg);
+        }
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = fallbackFilename || "download";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    } catch (err) {
+        showToast(err.message || "Download failed.", true);
+    }
 }
 
 function downloadReportDirect(reportId) {
@@ -1982,7 +2088,8 @@ function downloadReportDirect(reportId) {
     })) {
         return;
     }
-    triggerFileDownload(`/api/reports/${reportId}/file`);
+    const rep = state.reports.find((r) => r.id === reportId);
+    triggerAuthenticatedDownload(`/api/reports/${encodeURIComponent(reportId)}/file`, rep?.filename || "Lab_Report.pdf");
 }
 
 function downloadLatexDirect(reportId) {
@@ -1991,7 +2098,7 @@ function downloadLatexDirect(reportId) {
     })) {
         return;
     }
-    triggerFileDownload(`/api/reports/${reportId}/latex`);
+    triggerAuthenticatedDownload(`/api/reports/${encodeURIComponent(reportId)}/latex`, `Lab_Report_${reportId}_latex.zip`);
 }
 
 async function checkEmailVerificationStatus() {

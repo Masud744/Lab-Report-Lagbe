@@ -109,8 +109,64 @@ def _escape_latex(text: str) -> str:
     return text
 
 
+_DANGEROUS_TEX_RE = re.compile(
+    r"\\(input|include|catcode|write|read|openin|openout|closein|closeout|immediate|"
+    r"def|edef|gdef|xdef|let|futurelet|csname|endcsname|expandafter|usepackage|"
+    r"documentclass|newcommand|renewcommand|verbatiminput|lstinputlisting|special|"
+    r"pdfoutput|pdfliteral|href|url|newwrite|newread|write18)\b",
+    re.IGNORECASE,
+)
+
+_MAX_IMAGE_BYTES = 10 * 1024 * 1024
+_ALLOWED_IMAGE_FORMATS = {"PNG", "JPEG", "WEBP", "GIF"}
+
+
+def _sanitize_github_url(url: str) -> str:
+    """Validate HTTP(S) URLs and neutralize LaTeX-active characters before \\href{}."""
+    if not url:
+        return ""
+    url = str(url).strip()
+    if not re.match(r"^https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+$", url):
+        return ""
+    for ch in ("{", "}", "\\", "\n", "\r", "$", "^"):
+        url = url.replace(ch, "")
+    return url.replace("#", r"\#").replace("%", r"\%")
+
+
+def _decode_safe_image(img_data: str, allowed_dir: str | None = None) -> Image.Image | None:
+    """Decode validated base64 raster image or strictly-scoped path inside allowed_dir."""
+    if not img_data or not isinstance(img_data, str):
+        return None
+    if "base64," in img_data:
+        header, b64_content = img_data.split("base64,", 1)
+        if not re.match(r"^data:image/(png|jpeg|jpg|webp|gif);$", header.lower().strip()):
+            return None
+        if len(b64_content) > _MAX_IMAGE_BYTES * 2:
+            return None
+        raw_bytes = base64.b64decode(b64_content, validate=True)
+        if len(raw_bytes) > _MAX_IMAGE_BYTES:
+            return None
+        im = Image.open(io.BytesIO(raw_bytes))
+        if im.format not in _ALLOWED_IMAGE_FORMATS:
+            im.close()
+            return None
+        return im
+
+    if allowed_dir and os.path.exists(img_data):
+        real_allowed = os.path.realpath(allowed_dir) + os.sep
+        real_target = os.path.realpath(img_data)
+        if not real_target.startswith(real_allowed):
+            return None
+        im = Image.open(real_target)
+        if im.format not in _ALLOWED_IMAGE_FORMATS:
+            im.close()
+            return None
+        return im
+    return None
+
+
 def _sanitize_caption(caption: str) -> str:
-    """Format caption cleanly, allowing standard math notation while protecting against unsafe commands."""
+    """Format caption cleanly, allowing standard math notation while blocking unsafe TeX primitives."""
     if not caption:
         return ""
     caption = re.sub(r"^figure\s*\d+\s*:\s*", "", str(caption), flags=re.IGNORECASE).strip()
@@ -118,8 +174,7 @@ def _sanitize_caption(caption: str) -> str:
     safe_parts = []
     for part in parts:
         if part.startswith('$') and part.endswith('$'):
-            math_expr = part[1:-1]
-            math_expr = re.sub(r'\\(input|write|openout|def|let)', '', math_expr)
+            math_expr = _DANGEROUS_TEX_RE.sub('', part[1:-1])
             safe_parts.append(f"${math_expr}$")
         else:
             safe_parts.append(_escape_latex(part))
@@ -127,7 +182,7 @@ def _sanitize_caption(caption: str) -> str:
 
 
 def _clean_code_and_output(text: str) -> str:
-    """Sanitize text inside lstlisting to prevent pdflatex compilation crashes."""
+    """Sanitize text inside lstlisting and neutralize lstlisting breakout sequences."""
     if not text:
         return ""
     text = _sanitize_text(text)
@@ -138,7 +193,8 @@ def _clean_code_and_output(text: str) -> str:
             safe_chars.append(char)
         else:
             safe_chars.append('?')
-    return "".join(safe_chars)
+    cleaned = "".join(safe_chars)
+    return re.sub(r"\\end\s*\{\s*lstlisting\s*\}", "[end lstlisting]", cleaned, flags=re.IGNORECASE)
 
 
 LANGUAGE_LST_CONFIG = {
@@ -285,14 +341,9 @@ class LaTeXGenerator:
                 if tmpdir and img_data:
                     try:
                         dest = os.path.join(tmpdir, img_filename)
-                        if "base64," in img_data:
-                            b64_content = img_data.split("base64,", 1)[1]
-                            raw_bytes = base64.b64decode(b64_content)
-                            with Image.open(io.BytesIO(raw_bytes)) as pil_img:
-                                pil_img.convert("RGB").save(dest, format="PNG")
-                            saved_ok = True
-                        elif os.path.exists(img_data):
-                            with Image.open(img_data) as pil_img:
+                        pil_img = _decode_safe_image(img_data, allowed_dir=os.path.join(BASE_DIR, "output"))
+                        if pil_img is not None:
+                            with pil_img:
                                 pil_img.convert("RGB").save(dest, format="PNG")
                             saved_ok = True
                     except Exception as e:
@@ -343,7 +394,8 @@ class LaTeXGenerator:
             instructor_title=_escape_latex(data.get("instructor_title", "")),
             lab_number=data.get("lab_number", 1),
             lab_title=_escape_latex(data.get("lab_title", "")),
-            github_link=data.get("github_link", "").strip(),
+            github_link=_sanitize_github_url(data.get("github_link", "")),
+            github_link_display=_escape_latex(data.get("github_link", "").strip()),
             date_str=today,
             meta_title=meta_title,
             meta_author=meta_author,
@@ -356,8 +408,11 @@ class LaTeXGenerator:
 
     def compile_pdf(self, data: dict, output_filename: str) -> str:
         """Generate LaTeX and compile to PDF in a self-contained temporary directory."""
-        output_dir = os.path.join(BASE_DIR, "output")
+        output_dir = os.path.realpath(os.path.join(BASE_DIR, "output"))
         os.makedirs(output_dir, exist_ok=True)
+        safe_out_name = os.path.basename(output_filename)
+        if not safe_out_name.endswith(".pdf"):
+            safe_out_name = "report.pdf"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tex_content = self.generate(data, tmpdir=tmpdir)
@@ -370,11 +425,12 @@ class LaTeXGenerator:
             logo_written = False
             if custom_logo and "base64," in custom_logo:
                 try:
-                    raw_logo = base64.b64decode(custom_logo.split("base64,", 1)[1])
-                    with Image.open(io.BytesIO(raw_logo)) as pil_logo:
-                        pil_logo.save(os.path.join(tmpdir, "uftb.png"), format="PNG")
-                        pil_logo.save(os.path.join(tmpdir, "logo.png"), format="PNG")
-                    logo_written = True
+                    pil_logo = _decode_safe_image(custom_logo)
+                    if pil_logo is not None:
+                        with pil_logo:
+                            pil_logo.convert("RGBA").save(os.path.join(tmpdir, "uftb.png"), format="PNG")
+                            pil_logo.convert("RGBA").save(os.path.join(tmpdir, "logo.png"), format="PNG")
+                        logo_written = True
                 except Exception as e:
                     print(f"Warning: Custom logo decode failed, using default UFTB logo: {e}")
 
@@ -387,13 +443,20 @@ class LaTeXGenerator:
                 elif os.path.exists(logo_src):
                     shutil.copy(logo_src, os.path.join(tmpdir, "logo.png"))
 
-            # Run pdflatex twice
+            # Run pdflatex twice with shell-escape disabled and paranoid I/O
+            tex_env = {
+                "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
+                "HOME": tmpdir,
+                "openin_any": "p",
+                "openout_any": "p",
+            }
             last_stdout = ""
             last_stderr = ""
             for _ in range(2):
                 proc = subprocess.run(
-                    ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", "report.tex"],
+                    ["pdflatex", "-no-shell-escape", "-interaction=nonstopmode", "-halt-on-error", "report.tex"],
                     cwd=tmpdir,
+                    env=tex_env,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     timeout=60,
@@ -420,12 +483,16 @@ class LaTeXGenerator:
                     log_content = last_stdout[-1500:] or last_stderr[-1500:]
                 raise RuntimeError(f"PDF compilation failed.\n{log_content}")
 
-            final_path = os.path.join(output_dir, output_filename)
+            final_path = os.path.realpath(os.path.join(output_dir, safe_out_name))
+            if not final_path.startswith(output_dir + os.sep):
+                raise ValueError("Invalid output path.")
             shutil.copy(pdf_path, final_path)
 
             # Save Overleaf-ready LaTeX .zip bundle (main.tex + logo + figures)
-            stem = os.path.splitext(output_filename)[0]
-            zip_path = os.path.join(output_dir, f"{stem}_latex.zip")
+            stem = os.path.splitext(safe_out_name)[0]
+            zip_path = os.path.realpath(os.path.join(output_dir, f"{stem}_latex.zip"))
+            if not zip_path.startswith(output_dir + os.sep):
+                raise ValueError("Invalid archive path.")
             try:
                 with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
                     zf.write(tex_path, arcname="main.tex")

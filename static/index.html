@@ -874,8 +874,8 @@
                     <small id="pdfModalSub" class="muted-hint">PDF Document</small>
                 </div>
                 <div class="pdf-modal-actions">
-                    <a id="pdfModalLatex" class="btn btn-surface btn-sm" href="#" download hidden>Overleaf .zip</a>
-                    <a id="pdfModalDownload" class="btn btn-primary btn-sm" href="#" download>Download PDF</a>
+                    <button type="button" id="pdfModalLatex" class="btn btn-surface btn-sm" onclick="downloadActivePreviewLatex()" hidden>Overleaf .zip</button>
+                    <button type="button" id="pdfModalDownload" class="btn btn-primary btn-sm" onclick="downloadActivePreviewPdf()">Download PDF</button>
                     <button type="button" class="icon-btn" onclick="closePdfModal()" aria-label="Close preview">✕</button>
                 </div>
             </div>

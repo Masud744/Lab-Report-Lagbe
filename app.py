@@ -10,10 +10,10 @@ import uuid
 import base64
 import tempfile
 import subprocess
-from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from PIL import Image
 
@@ -22,10 +22,29 @@ from services.code_runner import CodeRunner, LANGUAGE_MAP
 from services.latex_generator import LaTeXGenerator
 from services.visual_runner import is_visual_task, generate_auto_visualizations
 from services.storage import ReportStorage, OUTPUT_DIR
+from services.auth_guard import (
+    require_verified_user,
+    get_optional_user,
+    exec_rate_limiter,
+    ai_rate_limiter,
+)
 
 load_dotenv()
 
 app = FastAPI(title="Lab Report Lagbe?", version="4.5.0")
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if request.url.path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -35,94 +54,133 @@ latex_gen = LaTeXGenerator()
 storage = ReportStorage()
 
 
+def _resolve_ai_service(custom_key: str) -> AIService:
+    """Return server AIService or request-scoped instance so user keys never mutate global state."""
+    key = (custom_key or "").strip()
+    server_key = os.getenv("GROQ_API_KEY", "")
+    if key and key != server_key:
+        if len(key) > 256:
+            raise HTTPException(status_code=400, detail="Invalid API key format.")
+        return AIService(api_key=key)
+    if not server_key and not ai_service.api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="Groq API key is required. Configure it in Settings or server .env.",
+        )
+    return ai_service
+
+
+def _assert_report_owner(report: dict | None, user: dict) -> dict:
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    owner = report.get("owner_uid")
+    if owner and owner != user["uid"]:
+        raise HTTPException(status_code=403, detail="Access denied: report belongs to another account.")
+    return report
+
+
+def _safe_output_path(filename: str) -> str:
+    safe_dir = os.path.realpath(OUTPUT_DIR)
+    target = os.path.realpath(os.path.join(safe_dir, os.path.basename(filename)))
+    if not target.startswith(safe_dir + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid file reference.")
+    return target
+
+
 # ─── Request Models ───
 
 class ImageInput(BaseModel):
-    data: str
-    caption: str = ""
+    data: str = Field(..., max_length=15_000_000)
+    caption: str = Field(default="", max_length=300)
 
 
 class TaskInput(BaseModel):
-    title: str
-    description: str = ""
-    requirements: list[str] = []
-    custom_code: str = ""
-    images: list[ImageInput] = []
+    title: str = Field(..., max_length=200)
+    description: str = Field(default="", max_length=4000)
+    requirements: list[str] = Field(default=[], max_length=25)
+    custom_code: str = Field(default="", max_length=100_000)
+    images: list[ImageInput] = Field(default=[], max_length=4)
 
 
 class GenerateRequest(BaseModel):
-    student_name: str
-    student_id: str
-    session: str = "2022-2023"
-    university: str = "University of Frontier Technology, Bangladesh"
-    university_short: str = "UFTB"
-    department: str = "Department of Internet of Things and Robotics Engineering (IRE)"
-    department_short: str = "IRE"
-    faculty: str = "Faculty of Cyber Physical System Engineering"
-    course_code: str = ""
-    course_title: str = ""
-    instructor_name: str = ""
-    instructor_title: str = "Lecturer"
-    lab_number: int = 1
-    lab_title: str = ""
-    language: str = "python"
-    github_link: str = ""
-    custom_logo: str = ""
-    tasks: list[TaskInput] = []
-    groq_api_key: str = ""
+    student_name: str = Field(..., max_length=120)
+    student_id: str = Field(..., max_length=60)
+    session: str = Field(default="2022-2023", max_length=60)
+    university: str = Field(default="University of Frontier Technology, Bangladesh", max_length=180)
+    university_short: str = Field(default="UFTB", max_length=40)
+    department: str = Field(default="Department of Internet of Things and Robotics Engineering (IRE)", max_length=180)
+    department_short: str = Field(default="IRE", max_length=40)
+    faculty: str = Field(default="Faculty of Cyber Physical System Engineering", max_length=180)
+    course_code: str = Field(default="", max_length=60)
+    course_title: str = Field(default="", max_length=200)
+    instructor_name: str = Field(default="", max_length=120)
+    instructor_title: str = Field(default="Lecturer", max_length=100)
+    lab_number: int = Field(default=1, ge=1, le=999)
+    lab_title: str = Field(default="", max_length=200)
+    language: str = Field(default="python", max_length=40)
+    github_link: str = Field(default="", max_length=500)
+    custom_logo: str = Field(default="", max_length=5_000_000)
+    tasks: list[TaskInput] = Field(default=[], max_length=15)
+    groq_api_key: str = Field(default="", max_length=256)
 
 
 class MethodologyPoint(BaseModel):
-    title: str
-    description: str
+    title: str = Field(..., max_length=200)
+    description: str = Field(..., max_length=2000)
 
 
 class PreparedTask(BaseModel):
-    title: str
-    problem_overview: str = ""
-    requirements: list[str] = []
-    methodology: list[MethodologyPoint] = []
-    filename: str = "main.py"
-    code: str = ""
-    output: str = ""
-    images: list[ImageInput] = []
+    title: str = Field(..., max_length=200)
+    problem_overview: str = Field(default="", max_length=5000)
+    requirements: list[str] = Field(default=[], max_length=25)
+    methodology: list[MethodologyPoint] = Field(default=[], max_length=20)
+    filename: str = Field(default="main.py", max_length=100)
+    code: str = Field(default="", max_length=100_000)
+    output: str = Field(default="", max_length=100_000)
+    images: list[ImageInput] = Field(default=[], max_length=4)
     is_visual: bool = False
-    result_discussion: str = ""
+    result_discussion: str = Field(default="", max_length=5000)
     self_healed: bool = False
-    exec_engine: str = "local"
+    exec_engine: str = Field(default="local", max_length=40)
 
 
 class CompileRequest(BaseModel):
-    student_name: str
-    student_id: str
-    session: str = "2022-2023"
-    university: str = "University of Frontier Technology, Bangladesh"
-    university_short: str = "UFTB"
-    department: str = "Department of Internet of Things and Robotics Engineering (IRE)"
-    department_short: str = "IRE"
-    faculty: str = "Faculty of Cyber Physical System Engineering"
-    course_code: str = ""
-    course_title: str = ""
-    instructor_name: str = ""
-    instructor_title: str = "Lecturer"
-    lab_number: int = 1
-    lab_title: str = ""
-    language: str = "python"
-    github_link: str = ""
-    custom_logo: str = ""
-    tasks: list[PreparedTask] = []
+    student_name: str = Field(..., max_length=120)
+    student_id: str = Field(..., max_length=60)
+    session: str = Field(default="2022-2023", max_length=60)
+    university: str = Field(default="University of Frontier Technology, Bangladesh", max_length=180)
+    university_short: str = Field(default="UFTB", max_length=40)
+    department: str = Field(default="Department of Internet of Things and Robotics Engineering (IRE)", max_length=180)
+    department_short: str = Field(default="IRE", max_length=40)
+    faculty: str = Field(default="Faculty of Cyber Physical System Engineering", max_length=180)
+    course_code: str = Field(default="", max_length=60)
+    course_title: str = Field(default="", max_length=200)
+    instructor_name: str = Field(default="", max_length=120)
+    instructor_title: str = Field(default="Lecturer", max_length=100)
+    lab_number: int = Field(default=1, ge=1, le=999)
+    lab_title: str = Field(default="", max_length=200)
+    language: str = Field(default="python", max_length=40)
+    github_link: str = Field(default="", max_length=500)
+    custom_logo: str = Field(default="", max_length=5_000_000)
+    tasks: list[PreparedTask] = Field(default=[], max_length=15)
 
 
 class ExecuteRequest(BaseModel):
-    code: str
-    language: str = "python"
-    stdin: str = ""
-    groq_api_key: str = ""
+    code: str = Field(..., max_length=100_000)
+    language: str = Field(default="python", max_length=40)
+    stdin: str = Field(default="", max_length=20_000)
+    groq_api_key: str = Field(default="", max_length=256)
 
 
 # ─── Core Pipeline Helpers ───
 
-async def _execute_with_self_healing(code: str, language: str, task_title: str, allow_heal: bool = True) -> dict:
+async def _execute_with_self_healing(
+    code: str,
+    language: str,
+    task_title: str,
+    ai: AIService,
+    allow_heal: bool = True,
+) -> dict:
     """
     Execute code locally/sandboxed; if compiler or runtime error occurs,
     automatically ask Groq AI to repair the code and re-run once.
@@ -142,7 +200,7 @@ async def _execute_with_self_healing(code: str, language: str, task_title: str, 
 
     # Self-healing retry when an actual runtime/compiler returned an error
     if allow_heal and engine in ("local", "piston", "judge0") and err_msg:
-        fixed_code = ai_service.fix_code(code, err_msg, language, task_title)
+        fixed_code = ai.fix_code(code, err_msg, language, task_title)
         if fixed_code and fixed_code.strip() != code.strip():
             retry_res = await code_runner.execute(fixed_code, language)
             if retry_res.get("success"):
@@ -155,7 +213,7 @@ async def _execute_with_self_healing(code: str, language: str, task_title: str, 
                 }
 
     # Fallback to AI terminal prediction (e.g. GUI/OpenGL or unavailable runtime)
-    predicted = ai_service.predict_output(code, language)
+    predicted = ai.predict_output(code, language)
     return {
         "code": code,
         "output": predicted,
@@ -167,14 +225,7 @@ async def _execute_with_self_healing(code: str, language: str, task_title: str, 
 
 async def _prepare_report_payload(req: GenerateRequest) -> dict:
     """Run AI generation, self-healing execution, plot capture, and auto-visualization."""
-    api_key = req.groq_api_key or os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=400,
-            detail="Groq API key is required. Configure it in Settings or server .env.",
-        )
-
-    ai_service.set_api_key(api_key)
+    ai = _resolve_ai_service(req.groq_api_key)
 
     if not req.student_name or not req.student_id:
         raise HTTPException(status_code=400, detail="Student name and ID are required.")
@@ -187,7 +238,7 @@ async def _prepare_report_payload(req: GenerateRequest) -> dict:
 
     for i, task in enumerate(req.tasks):
         try:
-            academic_data = ai_service.generate_full_report_task(
+            academic_data = ai.generate_full_report_task(
                 task_title=task.title,
                 task_description=task.description,
                 requirements=task.requirements,
@@ -196,10 +247,10 @@ async def _prepare_report_payload(req: GenerateRequest) -> dict:
                 student_id=req.student_id,
                 user_code=task.custom_code,
             )
-        except Exception as e:
+        except Exception:
             raise HTTPException(
                 status_code=500,
-                detail=f"Academic report generation failed for Task {i+1}: {str(e)}",
+                detail=f"Academic report generation failed for Task {i+1}. Please retry.",
             )
 
         has_custom = bool(task.custom_code and task.custom_code.strip())
@@ -216,6 +267,7 @@ async def _prepare_report_payload(req: GenerateRequest) -> dict:
             code=code,
             language=req.language,
             task_title=task.title,
+            ai=ai,
             allow_heal=not has_custom,
         )
         code = exec_info["code"]
@@ -285,7 +337,7 @@ async def _prepare_report_payload(req: GenerateRequest) -> dict:
     }
 
 
-def _compile_and_persist(report_data: dict) -> FileResponse:
+def _compile_and_persist(report_data: dict, owner_uid: str = "") -> FileResponse:
     """Compile prepared report dictionary to PDF + Overleaf zip and store metadata."""
     safe_id = re.sub(r"[^A-Za-z0-9_-]", "", report_data.get("student_id", "")) or "student"
     lab_num = int(report_data.get("lab_number", 1) or 1)
@@ -294,8 +346,8 @@ def _compile_and_persist(report_data: dict) -> FileResponse:
 
     try:
         pdf_path = latex_gen.compile_pdf(report_data, pdf_filename)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF compilation failed: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="PDF compilation failed due to invalid formatting.")
 
     tasks = report_data.get("tasks", [])
     exec_engine = report_data.get("exec_engine") or (tasks[0].get("exec_engine", "local") if tasks else "local")
@@ -310,6 +362,7 @@ def _compile_and_persist(report_data: dict) -> FileResponse:
         student_id=report_data.get("student_id", ""),
         task_count=len(tasks),
         engine=exec_engine,
+        owner_uid=owner_uid,
     )
 
     stem = os.path.splitext(pdf_filename)[0]
@@ -364,9 +417,10 @@ async def get_languages():
 
 
 @app.get("/api/dashboard")
-async def get_dashboard():
-    stats = storage.get_stats()
-    reports = storage.list_reports()
+async def get_dashboard(user: dict | None = Depends(get_optional_user)):
+    uid = user["uid"] if user else None
+    stats = storage.get_stats(owner_uid=uid)
+    reports = storage.list_reports(owner_uid=uid)
     activity = storage.list_activity(limit=15)
     has_key = bool(os.getenv("GROQ_API_KEY") or ai_service.api_key)
     return {
@@ -382,46 +436,56 @@ async def get_dashboard():
 
 
 @app.get("/api/reports")
-async def list_reports():
-    return {"reports": storage.list_reports()}
+async def list_reports(user: dict | None = Depends(get_optional_user)):
+    uid = user["uid"] if user else None
+    return {"reports": storage.list_reports(owner_uid=uid)}
 
 
 @app.get("/api/reports/{report_id}/file")
-async def get_report_file(report_id: str, inline: bool = Query(default=False)):
-    report = storage.get_report(report_id)
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found.")
-    fpath = os.path.join(OUTPUT_DIR, report["filename"])
+async def get_report_file(
+    report_id: str,
+    inline: bool = Query(default=False),
+    user: dict = Depends(require_verified_user),
+):
+    report = _assert_report_owner(storage.get_report(report_id), user)
+    fpath = _safe_output_path(report["filename"])
     if not os.path.exists(fpath):
         raise HTTPException(status_code=404, detail="Compiled PDF file not found on disk.")
     disposition = "inline" if inline else "attachment"
+    safe_dl = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(report["filename"]))
     return FileResponse(
         path=fpath,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'{disposition}; filename="{report["filename"]}"'},
+        headers={"Content-Disposition": f'{disposition}; filename="{safe_dl}"'},
     )
 
 
 @app.get("/api/reports/{report_id}/latex")
-async def get_report_latex_zip(report_id: str):
+async def get_report_latex_zip(
+    report_id: str,
+    user: dict = Depends(require_verified_user),
+):
     """Download Overleaf-ready LaTeX .zip bundle (main.tex + logo + figures)."""
-    report = storage.get_report(report_id)
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found.")
-    stem = os.path.splitext(report["filename"])[0]
+    report = _assert_report_owner(storage.get_report(report_id), user)
+    stem = os.path.splitext(os.path.basename(report["filename"]))[0]
     zip_name = f"{stem}_latex.zip"
-    zpath = os.path.join(OUTPUT_DIR, zip_name)
+    zpath = _safe_output_path(zip_name)
     if not os.path.exists(zpath):
         raise HTTPException(status_code=404, detail="LaTeX source bundle not available for this report.")
+    safe_zip_name = re.sub(r"[^A-Za-z0-9._-]", "_", zip_name)
     return FileResponse(
         path=zpath,
         media_type="application/zip",
-        filename=zip_name,
+        filename=safe_zip_name,
     )
 
 
 @app.delete("/api/reports/{report_id}")
-async def delete_report(report_id: str):
+async def delete_report(
+    report_id: str,
+    user: dict = Depends(require_verified_user),
+):
+    _assert_report_owner(storage.get_report(report_id), user)
     ok = storage.delete_report(report_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Report not found.")
@@ -435,14 +499,13 @@ async def get_activity():
 
 @app.post("/api/parse-labsheet")
 async def parse_labsheet(
+    request: Request,
     file: UploadFile = File(...),
     groq_api_key: str = Form(default=""),
 ):
     """Parse an uploaded Lab Manual PDF, screenshot image, or text file to auto-fill the form."""
-    api_key = groq_api_key or os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=400, detail="Groq API key is required to parse lab sheets.")
-    ai_service.set_api_key(api_key)
+    ai_rate_limiter.check(request)
+    ai = _resolve_ai_service(groq_api_key)
 
     raw_bytes = await file.read()
     if not raw_bytes:
@@ -452,6 +515,9 @@ async def parse_labsheet(
 
     fname = (file.filename or "").lower()
     ctype = (file.content_type or "").lower()
+
+    if "svg" in ctype or fname.endswith(".svg"):
+        raise HTTPException(status_code=400, detail="SVG files are not supported for security reasons.")
 
     try:
         if fname.endswith(".pdf") or "pdf" in ctype:
@@ -469,7 +535,7 @@ async def parse_labsheet(
                 extracted_text = proc.stdout.decode("utf-8", errors="replace").strip()
 
                 if len(extracted_text) >= 30:
-                    parsed = ai_service.parse_labsheet_text(extracted_text)
+                    parsed = ai.parse_labsheet_text(extracted_text)
                 else:
                     # Scanned PDF fallback: render page 1 as PNG and parse via vision
                     img_prefix = os.path.join(tmpdir, "page")
@@ -488,26 +554,28 @@ async def parse_labsheet(
                         buf = io.BytesIO()
                         im.convert("RGB").save(buf, format="JPEG", quality=85)
                         data_url = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
-                    parsed = ai_service.parse_labsheet_image(data_url)
+                    parsed = ai.parse_labsheet_image(data_url)
 
         elif ctype.startswith("image/") or fname.endswith((".png", ".jpg", ".jpeg", ".webp")):
             with Image.open(io.BytesIO(raw_bytes)) as im:
+                if im.format not in ("PNG", "JPEG", "WEBP", "GIF"):
+                    raise HTTPException(status_code=400, detail="Unsupported image format.")
                 im.thumbnail((1400, 1400), Image.Resampling.LANCZOS)
                 buf = io.BytesIO()
                 im.convert("RGB").save(buf, format="JPEG", quality=88)
                 data_url = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
-            parsed = ai_service.parse_labsheet_image(data_url)
+            parsed = ai.parse_labsheet_image(data_url)
 
         else:
             text = raw_bytes.decode("utf-8", errors="replace").strip()
             if not text:
                 raise RuntimeError("No readable text found in file.")
-            parsed = ai_service.parse_labsheet_text(text)
+            parsed = ai.parse_labsheet_text(text)
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lab sheet parsing failed: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Lab sheet parsing failed. Ensure file is valid PDF, image, or text.")
 
     # Normalize language key cleanly
     lang = str(parsed.get("language", "python")).lower().strip()
@@ -518,8 +586,9 @@ async def parse_labsheet(
 
 
 @app.post("/api/execute")
-async def execute_code(req: ExecuteRequest):
+async def execute_code(request: Request, req: ExecuteRequest):
     """Execute code in Code Workspace (with headless Matplotlib plot capture)."""
+    exec_rate_limiter.check(request)
     if not req.code or not req.code.strip():
         raise HTTPException(status_code=400, detail="Code cannot be empty.")
 
@@ -531,10 +600,9 @@ async def execute_code(req: ExecuteRequest):
     images = res.get("images", [])
 
     if not success and engine in ("unavailable", "skipped-gui", "piston"):
-        api_key = req.groq_api_key or os.getenv("GROQ_API_KEY")
-        if api_key:
-            ai_service.set_api_key(api_key)
-            output = ai_service.predict_output(req.code, req.language)
+        if req.groq_api_key or os.getenv("GROQ_API_KEY"):
+            ai = _resolve_ai_service(req.groq_api_key)
+            output = ai.predict_output(req.code, req.language)
             error = ""
             success = True
             engine = "ai-simulated"
@@ -551,23 +619,34 @@ async def execute_code(req: ExecuteRequest):
 
 
 @app.post("/api/prepare")
-async def prepare_report(req: GenerateRequest):
+async def prepare_report(request: Request, req: GenerateRequest):
     """Stage 1 of Review & Edit workflow: generate sections, self-heal/run code, and capture figures."""
+    ai_rate_limiter.check(request)
     return await _prepare_report_payload(req)
 
 
 @app.post("/api/compile")
-async def compile_prepared_report(req: CompileRequest):
+async def compile_prepared_report(
+    request: Request,
+    req: CompileRequest,
+    user: dict = Depends(require_verified_user),
+):
     """Stage 2 of Review & Edit workflow: compile user-edited sections into PDF + Overleaf zip."""
+    ai_rate_limiter.check(request)
     data = req.model_dump()
-    return _compile_and_persist(data)
+    return _compile_and_persist(data, owner_uid=user["uid"])
 
 
 @app.post("/api/generate")
-async def generate_report(req: GenerateRequest):
+async def generate_report(
+    request: Request,
+    req: GenerateRequest,
+    user: dict = Depends(require_verified_user),
+):
     """1-click end-to-end endpoint: prepare + self-heal + plot capture + compile PDF & LaTeX zip."""
+    ai_rate_limiter.check(request)
     report_data = await _prepare_report_payload(req)
-    return _compile_and_persist(report_data)
+    return _compile_and_persist(report_data, owner_uid=user["uid"])
 
 
 # ─── Serve static frontend (must be LAST) ───

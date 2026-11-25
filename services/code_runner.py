@@ -135,6 +135,46 @@ def _is_gui_or_interactive(code: str) -> bool:
     return False
 
 
+def _build_safe_env(tmpdir: str, uses_mpl: bool = False) -> dict[str, str]:
+    """Return an isolated subprocess environment without any host API keys or secrets."""
+    extra_bins = []
+    for tool in ("dart", "node", "javac", "gcc", "g++"):
+        loc = shutil.which(tool)
+        if loc:
+            d = os.path.dirname(loc)
+            if d not in extra_bins and d not in ("/usr/local/bin", "/usr/bin", "/bin"):
+                extra_bins.append(d)
+    safe_path = os.path.pathsep.join(["/usr/local/bin", "/usr/bin", "/bin", *extra_bins])
+    env = {
+        "PATH": safe_path,
+        "HOME": tmpdir,
+        "TMPDIR": tmpdir,
+        "TEMP": tmpdir,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+    }
+    if uses_mpl:
+        # Persist the Matplotlib font cache outside per-run tmpdir so imports
+        # do not re-index system fonts on every run and exceed the timeout.
+        mpl_cache = os.path.join(tempfile.gettempdir(), "lrg_mpl_cache")
+        os.makedirs(mpl_cache, mode=0o700, exist_ok=True)
+        env["MPLBACKEND"] = "Agg"
+        env["MPLCONFIGDIR"] = mpl_cache
+    return env
+
+
+def _sandbox_preexec(cpu_limit: int) -> None:
+    """Enforce CPU, file size, core dump, and file descriptor limits in child process."""
+    try:
+        import resource
+        resource.setrlimit(resource.RLIMIT_CPU, (cpu_limit, cpu_limit))
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (25 * 1024 * 1024, 25 * 1024 * 1024))
+        resource.setrlimit(resource.RLIMIT_NOFILE, (256, 256))
+    except Exception:
+        pass
+
+
 class CodeRunner:
     def __init__(self, piston_url: str = None, piston_key: str = None):
         self.piston_url = (piston_url or DEFAULT_PISTON_URL).rstrip("/")
@@ -147,6 +187,14 @@ class CodeRunner:
         Execute code via local runtime (if enabled), Piston, or Judge0.
         Returns: {"output": str, "error": str, "success": bool, "engine": str, "execution_ms": int}
         """
+        if len(code) > 100_000:
+            return {
+                "output": "",
+                "error": "Code exceeds maximum allowed length (100,000 characters).",
+                "success": False,
+                "engine": "rejected",
+                "execution_ms": 0,
+            }
         lang_key = language.lower().strip()
         start = time.perf_counter()
 
@@ -197,7 +245,7 @@ class CodeRunner:
             with tempfile.TemporaryDirectory(prefix="lrg_run_") as tmpdir:
                 cmd = None
                 compile_cmd = None
-                run_env = os.environ.copy()
+                run_env = _build_safe_env(tmpdir, uses_mpl=uses_mpl)
 
                 if lang_key == "python":
                     exe = shutil.which("python3")
@@ -207,11 +255,10 @@ class CodeRunner:
                     with open(src, "w", encoding="utf-8") as f:
                         f.write(code)
                     if uses_mpl:
-                        run_env["MPLBACKEND"] = "Agg"
                         boot = os.path.join(tmpdir, "_mpl_bootstrap.py")
                         with open(boot, "w", encoding="utf-8") as f:
                             f.write(_MPL_BOOTSTRAP)
-                        cmd = [exe, boot]
+                        cmd = [exe, "-I", boot]
                     else:
                         cmd = [exe, "-I", src]
 
@@ -284,9 +331,11 @@ class CodeRunner:
                     cproc = subprocess.run(
                         compile_cmd,
                         cwd=tmpdir,
+                        env=run_env,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         timeout=10,
+                        preexec_fn=(lambda: _sandbox_preexec(10)) if os.name == "posix" else None,
                     )
                     if cproc.returncode != 0:
                         err = cproc.stderr.decode("utf-8", errors="replace").strip()
@@ -305,6 +354,7 @@ class CodeRunner:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     timeout=timeout_sec,
+                    preexec_fn=(lambda: _sandbox_preexec(timeout_sec)) if os.name == "posix" else None,
                 )
                 stdout = rproc.stdout.decode("utf-8", errors="replace").strip()
                 stderr = rproc.stderr.decode("utf-8", errors="replace").strip()

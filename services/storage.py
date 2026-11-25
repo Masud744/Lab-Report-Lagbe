@@ -105,7 +105,16 @@ def _seed_existing_pdfs(store: dict) -> None:
 
 
 class ReportStorage:
-    def list_reports(self) -> list[dict]:
+    @staticmethod
+    def _is_accessible(report: dict, owner_uid: str | None) -> bool:
+        """Enforce user-level isolation for user-owned reports while preserving local legacy samples."""
+        rep_owner = report.get("owner_uid")
+        if owner_uid:
+            return not rep_owner or rep_owner == owner_uid
+        # Unauthenticated guests do not receive private user-owned reports
+        return not rep_owner
+
+    def list_reports(self, owner_uid: str | None = None) -> list[dict]:
         with _LOCK:
             store = _load_store()
             valid = []
@@ -122,7 +131,8 @@ class ReportStorage:
             if changed:
                 store["reports"] = valid
                 _save_store(store)
-            return sorted(valid, key=lambda x: x.get("updated_at", ""), reverse=True)
+            visible = [r for r in valid if self._is_accessible(r, owner_uid)]
+            return sorted(visible, key=lambda x: x.get("updated_at", ""), reverse=True)
 
     def get_report(self, report_id: str) -> dict | None:
         with _LOCK:
@@ -144,6 +154,7 @@ class ReportStorage:
         student_id: str,
         task_count: int = 1,
         engine: str = "groq",
+        owner_uid: str = "",
     ) -> dict:
         with _LOCK:
             store = _load_store()
@@ -164,6 +175,7 @@ class ReportStorage:
                 "student_id": student_id,
                 "task_count": task_count,
                 "engine": engine,
+                "owner_uid": owner_uid,
                 "created_at": now,
                 "updated_at": now,
             }
@@ -238,8 +250,8 @@ class ReportStorage:
             store = _load_store()
             return store.get("activity", [])[:limit]
 
-    def get_stats(self) -> dict:
-        reports = self.list_reports()
+    def get_stats(self, owner_uid: str | None = None) -> dict:
+        reports = self.list_reports(owner_uid=owner_uid)
         with _LOCK:
             store = _load_store()
             executions = store.get("code_executions", 0)
