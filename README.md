@@ -1,3 +1,12 @@
+---
+title: Lab Report Lagbe
+colorFrom: green
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Lab Report Lagbe? — AI Academic Programming Lab Report Workspace
 
 An AI-powered, full-stack academic web workspace for programming lab reports. Enter your course metadata and task descriptions (or write/test your own code in the built-in Code Workspace), attach output screenshots, and compile a publication-grade LaTeX PDF report complete with institutional cover page, methodology, syntax-highlighted code, 2x2 visualization grids, and result discussion.
@@ -45,6 +54,7 @@ Browser (Emerald Academic Workspace SPA)
 Lab Report Generator/
 |-- app.py                      # FastAPI web server and REST API endpoints
 |-- services/
+|   |-- auth_guard.py           # Firebase ID token verification & sliding-window rate limiter
 |   |-- ai_service.py           # Groq API integration, JSON parser, model fallback
 |   |-- code_runner.py          # Local runtime, Piston, and Judge0 code execution
 |   |-- latex_generator.py      # Jinja2-to-LaTeX renderer, sanitizer, pdflatex builder
@@ -57,7 +67,9 @@ Lab Report Generator/
 |   |-- css/style.css           # Emerald Academic Workspace design system
 |   |-- js/app.js               # Dashboard, report builder, code workspace, drafts, settings
 |   `-- images/                 # UFTB seal and application assets
+|-- firestore.rules             # Strict owner-isolated Firestore Security Rules
 |-- Dockerfile                  # Production Docker image (Hugging Face Spaces ready)
+|-- .dockerignore               # Excludes secrets, venv, and local outputs from image
 |-- docker-compose.yml          # Local Docker Compose setup with optional Piston container
 |-- requirements.txt            # Python dependencies
 |-- .env.example                # Sample environment variables
@@ -127,16 +139,25 @@ Note: When deploying publicly, set `ENABLE_LOCAL_RUNNER=false` in your environme
 
 ## Cloud Deployment (Hugging Face Spaces)
 
-1. Create a new Space on [Hugging Face Spaces](https://huggingface.co/spaces) with **Docker** as the SDK.
+1. Create a new Space on [Hugging Face Spaces](https://huggingface.co/spaces) with **Docker** as the SDK (CPU basic - 16 GB RAM free tier).
 2. Push this repository to your Space:
    ```bash
    git remote add space https://huggingface.co/spaces/<your-username>/<your-space-name>
    git push space main
    ```
-3. In Space **Settings -> Variables and secrets**, add:
-   - `GROQ_API_KEY`: Your Groq API key
-   - `ENABLE_LOCAL_RUNNER`: `false`
-4. Hugging Face Spaces builds the Dockerfile automatically and serves the application on a public URL.
+3. In Space **Settings -> Variables and secrets**, configure:
+   - **Secret** `GROQ_API_KEY`: Your Groq API key
+   - **Variables** (from `.env`):
+     - `FIREBASE_API_KEY`
+     - `FIREBASE_AUTH_DOMAIN`
+     - `FIREBASE_PROJECT_ID` (`lab-report-lagbe`)
+     - `FIREBASE_STORAGE_BUCKET`
+     - `FIREBASE_MESSAGING_SENDER_ID`
+     - `FIREBASE_APP_ID`
+     - `FIREBASE_MEASUREMENT_ID`
+     - `ENABLE_LOCAL_RUNNER`: `true` (safe sandboxed env; or `false` to route code to external Piston/AI simulation)
+4. In Firebase Console -> **Authentication -> Settings -> Authorized domains**, add your Space hostname (for example `<your-username>-<your-space-name>.hf.space`) so Google Sign-In works on the live URL.
+5. Hugging Face Spaces builds the `Dockerfile` automatically and serves the application on port `7860`. Note that local files in `output/` and `data/` reset when the Space rebuilds or sleeps, while user profiles, drafts, and metadata stay persisted in Firestore.
 
 ---
 

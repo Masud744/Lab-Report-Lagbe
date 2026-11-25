@@ -1,0 +1,29 @@
+# Virtual environments and caches
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+
+# Git and IDE metadata
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Environment variables and secrets
+.env
+.env.*
+credentials.json
+serviceAccountKey.json
+*firebase*credentials*.json
+*firebase*adminsdk*.json
+
+# Local runtime storage and dev-only asset folders
+data/
+output/*
+Images/
+Logo/
+
