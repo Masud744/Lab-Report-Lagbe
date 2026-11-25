@@ -1,186 +1,270 @@
----
-title: Lab Report Lagbe
-colorFrom: green
-colorTo: indigo
-sdk: docker
-app_port: 7860
-pinned: false
----
+<p align="center">
+  <img src="static/images/app_logo.png" alt="Lab Report Lagbe? Logo" width="280">
+</p>
 
-# Lab Report Lagbe? — AI Academic Programming Lab Report Workspace
+<h1 align="center">Lab Report Lagbe? — AI Academic Programming Lab Report Workspace</h1>
 
-An AI-powered, full-stack academic web workspace for programming lab reports. Enter your course metadata and task descriptions (or write/test your own code in the built-in Code Workspace), attach output screenshots, and compile a publication-grade LaTeX PDF report complete with institutional cover page, methodology, syntax-highlighted code, 2x2 visualization grids, and result discussion.
+<p align="center">
+  <a href="https://lab-report-lagbe.onrender.com"><img src="https://img.shields.io/badge/Render-Live_Production-46E3B7?style=flat-square&logo=render&logoColor=white" alt="Render Live"></a>
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/LaTeX-TeX_Live_pdflatex-008080?style=flat-square&logo=latex&logoColor=white" alt="LaTeX">
+  <img src="https://img.shields.io/badge/Firebase-Auth_%26_Firestore-FFA611?style=flat-square&logo=firebase&logoColor=white" alt="Firebase">
+  <img src="https://img.shields.io/badge/Groq-LLM_Inference-F55036?style=flat-square" alt="Groq">
+  <img src="https://img.shields.io/badge/Docker-Containerized-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/License-MIT-4CAF50?style=flat-square" alt="License">
+</p>
 
----
+<p align="center">
+  An AI-powered, full-stack academic workspace for generating, compiling, and managing publication-grade programming lab reports. Converts lab manuals, problem statements, and verified code executions into institutional LaTeX PDFs and Overleaf-ready archives with Firebase authentication and cloud profile sync.
+</p>
 
-## Key Features
-
-- **Academic Workspace UI**: Clean dashboard with live KPI stats, recent reports table, built-in PDF preview modal, interactive calendar, quick-start templates, activity history, and `Ctrl+K` global search.
-- **AI Report Generation**: Generates structured Problem Description, 5-point Methodology, runnable source code (or analyzes your own custom code), and Result & Discussion via Groq API (`qwen/qwen3.8-27b` with automatic model fallback).
-- **Interactive Code Workspace**: Write and execute code directly inside the browser (local runtime for Python, C, C++, Java, Dart, JavaScript, Bash, plus Piston/Judge0/AI simulation fallback) and send verified code straight into a new lab report.
-- **22 Programming Languages**: Python, C++, C, Java, Dart, JavaScript, TypeScript, SQL, Go, Rust, Kotlin, C#, PHP, Ruby, Swift, R, Bash, MATLAB/Octave, Arduino (C++), Lua, Perl, and Scala.
-- **Publication-Grade LaTeX PDF**: Official UFTB crest (with optional custom university logo upload in Settings), TikZ double-border cover page, single-task and multi-task numbering, dual-column code listing for longer files, and 2x2 screenshot figure grids.
-- **Lab Sheet Auto-Fill**: Upload a teacher's lab manual PDF, question screenshot (PNG/JPG), or text file to automatically extract course metadata, lab title, language, tasks, and requirements into the form.
-- **Review & Edit Studio + Overleaf Export**: Inspect and refine AI-generated Problem Overview, Methodology points, Source Code, Output, Figure Captions, and Discussion before compiling the final PDF, and download an Overleaf-ready `.zip` bundle (`main.tex` + logo + figures) for any report.
-- **Self-Healing Code Execution**: Automatically detects compiler or runtime errors during local/sandboxed execution, feeds stderr back to Groq AI to repair the code, and re-executes to verify runnable output.
-- **Headless Matplotlib Plot Capture**: Automatically captures Python `matplotlib` charts (`Agg` backend) both in the live Code Workspace and inside Section 4 (Output Visualization) of generated PDFs.
-- **Smart Auto-Visualization**: Automatically generates 4-angle wireframe renders for 3D OpenGL cuboid tasks and 2D pixel coordinate grids for DDA / Bresenham / Midpoint Circle tasks when no screenshots are uploaded.
-- **Zero-Cost Stack**: Runs completely on free-tier infrastructure (Groq API + local/Docker LaTeX).
+> [!IMPORTANT]
+> **Live Production Deployment:**
+> - **Web Workspace & API:** [https://lab-report-lagbe.onrender.com](https://lab-report-lagbe.onrender.com)
+> - **Service Health Endpoint:** [https://lab-report-lagbe.onrender.com/api/health](https://lab-report-lagbe.onrender.com/api/health)
+> - **Source Code Repository:** [https://github.com/Masud744/Lab-Report-Lagbe](https://github.com/Masud744/Lab-Report-Lagbe)
 
 ---
 
-## Architecture
+## Table of Contents
 
+1. [Overview](#1-overview)
+2. [Live Deployments](#2-live-deployments)
+3. [Key Features](#3-key-features)
+4. [System Architecture](#4-system-architecture)
+5. [Security Architecture & Hardening](#5-security-architecture--hardening)
+6. [Technology Stack](#6-technology-stack)
+7. [API Reference](#7-api-reference)
+8. [Project Structure](#8-project-structure)
+9. [Installation & Local Setup](#9-installation--local-setup)
+10. [Docker & Cloud Deployment (Render)](#10-docker--cloud-deployment-render)
+11. [Author](#11-author)
+12. [License](#12-license)
+
+---
+
+## 1. Overview
+
+Formatting university programming lab reports manually across code editors, terminal screenshots, figure grids, and LaTeX templates takes significant effort every week. **Lab Report Lagbe?** automates the entire workflow inside a unified web workspace:
+
+- Upload a lab manual PDF, problem screenshot, or plain text brief to auto-populate course details, tasks, and requirements.
+- Write and run code directly inside the browser Code Workspace (with headless Matplotlib chart capture and automatic error self-healing) or supply custom source code and output screenshots.
+- Inspect and edit AI-generated Problem Overview, Methodology points, Code, Execution Output, Figure Captions, and Result & Discussion in the **Review & Edit Studio** before compilation.
+- Export publication-grade PDFs with an institutional TikZ cover page alongside an Overleaf-ready `_latex.zip` bundle (`main.tex`, crest logo, and figures).
+
+---
+
+## 2. Live Deployments
+
+| Component | Platform | URL / Details |
+| :--- | :--- | :--- |
+| **Web Application (SPA + FastAPI)** | Render (Docker Web Service) | [https://lab-report-lagbe.onrender.com](https://lab-report-lagbe.onrender.com) |
+| **Health & Runtime Probe** | Render | [https://lab-report-lagbe.onrender.com/api/health](https://lab-report-lagbe.onrender.com/api/health) |
+| **Authentication & Cloud Sync** | Firebase Auth & Firestore | Google OAuth, Verified Email/Password, Profile & Draft Sync |
+| **Repository** | GitHub | [https://github.com/Masud744/Lab-Report-Lagbe](https://github.com/Masud744/Lab-Report-Lagbe) |
+
+---
+
+## 3. Key Features
+
+- **Academic Workspace Dashboard:** Live KPI counters, recent reports table, built-in authenticated PDF preview modal, interactive calendar, quick-start lab templates, activity feed, and `Ctrl+K` global search.
+- **Lab Sheet Auto-Fill (`/api/parse-labsheet`):** Extracts course code, course title, lab number, language, tasks, and requirements from PDFs, raster screenshots (PNG/JPG/WEBP), or text files.
+- **22 Programming Languages:** Supports Python, C++, C, Java, Dart, JavaScript, TypeScript, SQL, Go, Rust, Kotlin, C#, PHP, Ruby, Swift, R, Bash, MATLAB/Octave, Arduino, Lua, Perl, and Scala.
+- **Interactive Code Workspace (`/api/execute`):** Executes code via sandboxed local runtimes (Python/Matplotlib, C, C++, Java, Dart, JavaScript, Bash when enabled), Piston/Judge0, or Groq AI simulation fallback.
+- **Self-Healing Code Pipeline:** Captures compiler or runtime errors during execution, sends diagnostics back to Groq LLM to repair the program, and re-runs verification.
+- **Review & Edit Studio (`/api/prepare` + `/api/compile`):** Two-stage pipeline letting users inspect and refine every section and figure caption before final LaTeX compilation.
+- **Publication-Grade LaTeX & Overleaf Export:** Generates dual-column listings for longer files, 2x2 screenshot figure grids, custom or default UFTB institutional crest cover pages, compiled PDFs, and Overleaf `.zip` archives.
+- **Smart Auto-Visualizations:** Automatically generates 4-angle 3D wireframe renders for OpenGL cuboid tasks and 2D pixel grid diagrams for DDA/Bresenham/Midpoint raster tasks when screenshots are omitted.
+- **Firebase Auth & Cloud Profile Sync:** Supports Google Sign-In and email/password registration with email verification enforcement, student profile persistence in Firestore, and guest soft-wall prompts before report generation or download.
+
+---
+
+## 4. System Architecture
+
+```mermaid
+flowchart TD
+    subgraph Client [Browser Client - Emerald Academic Workspace]
+        UI[Single Page App HTML/CSS/JS]
+        AuthSDK[Firebase Auth & Firestore SDK]
+        Preview[Authenticated Blob PDF Modal]
+    end
+
+    subgraph Backend [FastAPI Backend - Docker / Render]
+        Middleware[Security Headers Middleware]
+        Guard[Firebase Token Guard & Rate Limiter]
+        API[REST Endpoints app.py]
+        AI[Groq AIService]
+        Runner[Sandboxed CodeRunner]
+        Visual[VisualRunner PIL Renderer]
+        LaTeX[Sanitized LaTeXGenerator & pdflatex]
+        Store[Owner-Isolated ReportStorage]
+    end
+
+    UI -->|authFetch Bearer ID Token| Middleware
+    Middleware --> Guard
+    Guard --> API
+    AuthSDK <-->|Profile & Draft Sync| UI
+    API --> AI
+    API --> Runner
+    API --> Visual
+    API --> LaTeX
+    API --> Store
+    LaTeX -->|PDF + Overleaf .zip| Store
+    Store -->|Authorized Blob Stream| Preview
 ```
-Browser (Emerald Academic Workspace SPA)
-       |
-       +-- POST /api/execute   ---> CodeRunner (Local / Piston / Judge0 / AI)
-       |
-       +-- GET  /api/dashboard ---> ReportStorage (JSON metadata + PDF files)
-       |
-       +-- POST /api/generate  ---> FastAPI Backend (app.py)
-                                        |
-                                        +--> 1. AIService (Groq API): Overview, Methodology, Code, Discussion
-                                        +--> 2. CodeRunner: Live execution or AI terminal simulation
-                                        +--> 3. VisualRunner: Uploaded screenshots or 2D/3D auto-renders
-                                        +--> 4. LaTeXGenerator (pdflatex): Compiles & persists PDF
-```
 
 ---
 
-## Project Structure
+## 5. Security Architecture & Hardening
 
-```
+- **Cryptographic Token Verification (`services/auth_guard.py`):** Verifies Firebase ID tokens against Google public certificates (`google-auth`) on protected endpoints (`/api/generate`, `/api/compile`, `/api/reports/{id}/file`, `/api/reports/{id}/latex`, `DELETE /api/reports/{id}`), and blocks unverified email/password accounts with HTTP `403`.
+- **Report Ownership & Firestore Rules (`services/storage.py`, `firestore.rules`):** Enforces server-side `owner_uid` isolation (`_assert_report_owner`) against IDOR across report retrieval, LaTeX download, and deletion, backed by strict owner-only Firestore rules (`isOwner(userId)`, `hasOnly()`, field size limits, default deny).
+- **LaTeX Injection & File Read Prevention (`services/latex_generator.py`):** Compiles with `pdflatex -no-shell-escape` and `openin_any=p`/`openout_any=p`, validates `github_link` via `_sanitize_github_url()`, restricts image decoding to raster formats (`_decode_safe_image`), neutralizes `\end{lstlisting}` breakouts, filters unsafe TeX primitives from captions, and confines output paths via `os.path.realpath()`.
+- **Sandboxed Code Execution (`services/code_runner.py`):** Scrubs host secrets (`GROQ_API_KEY`, `FIREBASE_*`) via `_build_safe_env()`, runs Python in isolated mode (`python3 -I`) with a non-secret Matplotlib cache, enforces POSIX `rlimit` bounds (`RLIMIT_CPU`, `RLIMIT_CORE=0`, `RLIMIT_FSIZE`, `RLIMIT_NOFILE`), and rejects code over `100,000` characters.
+- **Web & Transport Hardening (`app.py`, `static/js/app.js`):** Sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, `Permissions-Policy`, and `Cache-Control: no-store`; blocks SVG uploads (`400`); applies IP sliding-window rate limiters (`--proxy-headers` aware); sanitizes DOM outputs and streams PDF previews through authenticated `blob:` URLs revoked on modal close.
+
+---
+
+## 6. Technology Stack
+
+| Layer | Technologies |
+| :--- | :--- |
+| **Backend API** | Python 3.11+, FastAPI, Uvicorn, Pydantic v2, Jinja2, Pillow |
+| **AI & Inference** | Groq SDK (`AIService` with automatic fallback models & request-scoped keys) |
+| **Document Engine** | TeX Live (`pdflatex`), `listings`, TikZ cover page, `zipfile` Overleaf bundle |
+| **Frontend** | Vanilla HTML5, CSS3 (Emerald Academic design system), Modular ES6+ JavaScript |
+| **Auth & Cloud Data** | Firebase Authentication, Cloud Firestore (`firestore.rules`), Google Public Cert JWT Check |
+| **Deployment** | Docker, `.dockerignore`, `render.yaml` Blueprint on Render.com, Docker Compose + Piston |
+
+---
+
+## 7. API Reference
+
+| Method | Endpoint | Auth Required | Purpose |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/health` | No | Service health and version probe |
+| `GET` | `/api/firebase-config` | No | Public Firebase Web SDK configuration |
+| `GET` | `/api/dashboard` | Optional | Dashboard stats scoped to signed-in user |
+| `GET` | `/api/reports` | Optional | List visible reports for user or legacy samples |
+| `GET` | `/api/reports/{id}/file` | Verified User + Owner | Authenticated PDF preview (`inline=1`) or download |
+| `GET` | `/api/reports/{id}/latex` | Verified User + Owner | Download Overleaf-ready `_latex.zip` bundle |
+| `DELETE` | `/api/reports/{id}` | Verified User + Owner | Delete owned report and generated artifacts |
+| `POST` | `/api/parse-labsheet` | Rate Limited | Parse PDF, raster image (no SVG), or text lab sheet |
+| `POST` | `/api/execute` | Rate Limited | Execute code in Code Workspace (with AI fallback) |
+| `POST` | `/api/prepare` | Rate Limited | Generate editable draft sections, code, and figures |
+| `POST` | `/api/compile` | Verified User | Compile reviewed draft into PDF + Overleaf `.zip` |
+| `POST` | `/api/generate` | Verified User | End-to-end 1-click prepare and compile pipeline |
+
+---
+
+## 8. Project Structure
+
+```text
 Lab Report Generator/
-|-- app.py                      # FastAPI web server and REST API endpoints
+|-- app.py                      # FastAPI server, middleware, validation, REST API routes
 |-- services/
 |   |-- auth_guard.py           # Firebase ID token verification & sliding-window rate limiter
-|   |-- ai_service.py           # Groq API integration, JSON parser, model fallback
-|   |-- code_runner.py          # Local runtime, Piston, and Judge0 code execution
-|   |-- latex_generator.py      # Jinja2-to-LaTeX renderer, sanitizer, pdflatex builder
+|   |-- ai_service.py           # Groq API integration, JSON extraction, model fallback
+|   |-- code_runner.py          # Isolated local runner, Piston, and Judge0 integration
+|   |-- latex_generator.py      # Jinja2 renderer, TeX sanitizer, -no-shell-escape compiler
 |   |-- visual_runner.py        # 3D wireframe and 2D raster auto-visualization renderer
-|   `-- storage.py              # Report metadata and activity persistence
+|   `-- storage.py              # Thread-safe report metadata, ownership, and activity store
 |-- templates/
 |   `-- report_template.tex     # Master LaTeX academic report template
 |-- static/
-|   |-- index.html              # Single-page workspace UI
-|   |-- css/style.css           # Emerald Academic Workspace design system
-|   |-- js/app.js               # Dashboard, report builder, code workspace, drafts, settings
-|   `-- images/                 # UFTB seal and application assets
-|-- firestore.rules             # Strict owner-isolated Firestore Security Rules
-|-- Dockerfile                  # Production Docker image (Render / cloud container ready)
+|   |-- index.html              # Single-page workspace UI & modals
+|   |-- css/style.css           # Application design system styles
+|   |-- js/app.js               # Workspace state, authFetch, blob PDF modal, Firestore sync
+|   `-- images/                 # App mascot logo, favicon, and institutional crest
+|-- firestore.rules             # Strict owner-isolated Cloud Firestore Security Rules
+|-- firebase.json               # Firebase project & provider configuration
+|-- Dockerfile                  # Multi-stage-clean container with TeX Live & non-root uid 1000
 |-- render.yaml                 # Render Blueprint configuration (free Docker web service)
-|-- .dockerignore               # Excludes secrets, venv, and local outputs from image
+|-- .dockerignore               # Excludes secrets, venv, git metadata, and local outputs
 |-- docker-compose.yml          # Local Docker Compose setup with optional Piston container
-|-- requirements.txt            # Python dependencies
-|-- .env.example                # Sample environment variables
+|-- requirements.txt            # Pinned Python dependencies
+|-- .env.example                # Environment variable template
 `-- README.md
 ```
 
 ---
 
-## Quick Start (Local Setup)
+## 9. Installation & Local Setup
 
-### 1. Prerequisites
+### Prerequisites
 
 - Python 3.10+
-- `pdflatex` installed locally:
+- TeX Live installed locally (`pdflatex`):
   ```bash
   sudo apt update && sudo apt install -y texlive-base texlive-latex-extra texlive-fonts-recommended
   ```
-- A free Groq API key from [console.groq.com/keys](https://console.groq.com/keys)
+- A Groq API key from [console.groq.com/keys](https://console.groq.com/keys) and a Firebase Web App project.
 
-### 2. Installation
+### Setup & Run
 
 ```bash
 # Clone the repository
-git clone https://github.com/Masud744/Lab-Report-Lagbe-.git
-cd Lab-Report-Lagbe-
+git clone https://github.com/Masud744/Lab-Report-Lagbe.git
+cd Lab-Report-Lagbe
 
 # Create and activate virtual environment
 python3 -m venv venv
 source venv/bin/activate
 
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 
 # Configure environment variables
 cp .env.example .env
-# Edit .env and set GROQ_API_KEY
-```
+# Fill GROQ_API_KEY and FIREBASE_* values in .env
 
-### 3. Run the Server
-
-```bash
-uvicorn app:app --reload --port 7860
+# Run the local development server
+uvicorn app:app --reload --host 0.0.0.0 --port 7860
 ```
 
 Open [http://localhost:7860](http://localhost:7860) in your browser.
 
 ---
 
-## Docker Setup
+## 10. Docker & Cloud Deployment (Render)
 
-### Option A: Standalone Docker
+### Local Docker & Compose
 
 ```bash
+# Standalone container
 docker build -t lab-report-lagbe .
 docker run -p 7860:7860 --env-file .env lab-report-lagbe
-```
 
-### Option B: Docker Compose (with local Piston runner)
-
-```bash
+# Or Docker Compose (app + optional Piston sandbox container)
 docker compose up --build
 ```
 
-Note: When deploying publicly, set `ENABLE_LOCAL_RUNNER=false` in your environment so untrusted user code runs only in sandboxed Piston/Judge0 or AI simulation mode.
+### Render.com Free Tier (`render.yaml`)
 
----
+Both the FastAPI backend and the frontend (`static/`) deploy together from one Docker service configured in [render.yaml](render.yaml):
 
-## Cloud Deployment (Render Free Tier - Recommended)
-
-Both the FastAPI backend and the static frontend (`static/`) run from a single Docker web service configured in `render.yaml`:
-
-1. Push this repository to GitHub (`main` branch).
-2. Open [dashboard.render.com](https://dashboard.render.com/) -> **New +** -> **Blueprint** (or **Web Service**) and connect this GitHub repository (`render.yaml` is detected automatically).
-3. When prompted for environment variables, fill in the values from your `.env` (leave `ENABLE_LOCAL_RUNNER=false` on the 512 MB free tier to prevent out-of-memory errors; Code Workspace automatically falls back to AI output simulation):
+1. Open [dashboard.render.com](https://dashboard.render.com/) -> **New +** -> **Blueprint** (or **Web Service**) and connect this GitHub repository.
+2. Provide the environment values from `.env` when prompted (`ENABLE_LOCAL_RUNNER` defaults to `"false"` on the 512 MB free tier so Code Workspace safely uses `ai-simulated` fallback while preserving RAM for `pdflatex`):
    - `GROQ_API_KEY`
-   - `FIREBASE_API_KEY`
-   - `FIREBASE_AUTH_DOMAIN`
-   - `FIREBASE_STORAGE_BUCKET`
-   - `FIREBASE_MESSAGING_SENDER_ID`
-   - `FIREBASE_APP_ID`
-   - `FIREBASE_MEASUREMENT_ID`
-4. After the service goes live (e.g., `https://lab-report-lagbe.onrender.com`), open Firebase Console -> **Authentication -> Settings -> Authorized domains** and add `<your-service>.onrender.com` so Google Sign-In works on the live domain.
-5. Note: Render free instances spin down after 15 minutes of inactivity (~50-60s cold start) and reset local container files (`output/`, `data/`), while Firestore profiles, drafts, and report metadata remain persisted.
+   - `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID`, `FIREBASE_MEASUREMENT_ID` (`FIREBASE_PROJECT_ID` is preset to `lab-report-lagbe`)
+3. Add your live Render hostname (for example `lab-report-lagbe.onrender.com`) under **Firebase Console -> Authentication -> Settings -> Authorized domains** so Google Sign-In works in production.
+4. Note: Render free instances spin down after 15 minutes of inactivity (~50-60s cold wake-up) and reset ephemeral container files (`output/`, `data/`), while Firestore user profiles, drafts, and metadata remain persisted.
 
 ---
 
-## Cloud Deployment (Docker / PRO Spaces)
+## 11. Author
 
-1. Create a new Space on [Hugging Face Spaces](https://huggingface.co/spaces) with **Docker** as the SDK (CPU basic - 16 GB RAM free tier).
-2. Push this repository to your Space:
-   ```bash
-   git remote add space https://huggingface.co/spaces/<your-username>/<your-space-name>
-   git push space main
-   ```
-3. In Space **Settings -> Variables and secrets**, configure:
-   - **Secret** `GROQ_API_KEY`: Your Groq API key
-   - **Variables** (from `.env`):
-     - `FIREBASE_API_KEY`
-     - `FIREBASE_AUTH_DOMAIN`
-     - `FIREBASE_PROJECT_ID` (`lab-report-lagbe`)
-     - `FIREBASE_STORAGE_BUCKET`
-     - `FIREBASE_MESSAGING_SENDER_ID`
-     - `FIREBASE_APP_ID`
-     - `FIREBASE_MEASUREMENT_ID`
-     - `ENABLE_LOCAL_RUNNER`: `true` (safe sandboxed env; or `false` to route code to external Piston/AI simulation)
-4. In Firebase Console -> **Authentication -> Settings -> Authorized domains**, add your Space hostname (for example `<your-username>-<your-space-name>.hf.space`) so Google Sign-In works on the live URL.
-5. Hugging Face Spaces builds the `Dockerfile` automatically and serves the application on port `7860`. Note that local files in `output/` and `data/` reset when the Space rebuilds or sleeps, while user profiles, drafts, and metadata stay persisted in Firestore.
+**Shahriar Alom Masud**  
+B.Sc. Engg. in Internet of Things and Robotics Engineering (IRE)  
+University of Frontier Technology, Bangladesh (UFTB)  
+- **Email:** [shahriar0002@std.uftb.ac.bd](mailto:shahriar0002@std.uftb.ac.bd)  
+- **Personal Email:** [masud.nil74@gmail.com](mailto:masud.nil74@gmail.com)  
+- **LinkedIn:** [https://www.linkedin.com/in/shahriar-alom-masud](https://www.linkedin.com/in/shahriar-alom-masud)  
+- **GitHub:** [https://github.com/Masud744](https://github.com/Masud744)
 
 ---
 
-## License
+## 12. License
 
-MIT License. Designed and maintained by Shahriar Alom Masud.
+MIT License. Maintained by [Shahriar Alom Masud](https://github.com/Masud744).
