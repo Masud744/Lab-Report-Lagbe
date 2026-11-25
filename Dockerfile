@@ -6,12 +6,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MPLBACKEND=Agg \
     MPLCONFIGDIR=/tmp/lrg_mpl_cache
 
-# Install minimal TeX Live packages and C/C++ compilers
+# Install minimal TeX Live packages (including lmodern.sty) and C/C++ compilers
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     texlive-base \
     texlive-latex-extra \
     texlive-fonts-recommended \
+    lmodern \
     gcc \
     g++ \
     && rm -rf /var/lib/apt/lists/*
