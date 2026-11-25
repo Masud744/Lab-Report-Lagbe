@@ -68,7 +68,8 @@ Lab Report Generator/
 |   |-- js/app.js               # Dashboard, report builder, code workspace, drafts, settings
 |   `-- images/                 # UFTB seal and application assets
 |-- firestore.rules             # Strict owner-isolated Firestore Security Rules
-|-- Dockerfile                  # Production Docker image (Hugging Face Spaces ready)
+|-- Dockerfile                  # Production Docker image (Render / cloud container ready)
+|-- render.yaml                 # Render Blueprint configuration (free Docker web service)
 |-- .dockerignore               # Excludes secrets, venv, and local outputs from image
 |-- docker-compose.yml          # Local Docker Compose setup with optional Piston container
 |-- requirements.txt            # Python dependencies
@@ -137,7 +138,26 @@ Note: When deploying publicly, set `ENABLE_LOCAL_RUNNER=false` in your environme
 
 ---
 
-## Cloud Deployment (Hugging Face Spaces)
+## Cloud Deployment (Render Free Tier - Recommended)
+
+Both the FastAPI backend and the static frontend (`static/`) run from a single Docker web service configured in `render.yaml`:
+
+1. Push this repository to GitHub (`main` branch).
+2. Open [dashboard.render.com](https://dashboard.render.com/) -> **New +** -> **Blueprint** (or **Web Service**) and connect this GitHub repository (`render.yaml` is detected automatically).
+3. When prompted for environment variables, fill in the values from your `.env` (leave `ENABLE_LOCAL_RUNNER=false` on the 512 MB free tier to prevent out-of-memory errors; Code Workspace automatically falls back to AI output simulation):
+   - `GROQ_API_KEY`
+   - `FIREBASE_API_KEY`
+   - `FIREBASE_AUTH_DOMAIN`
+   - `FIREBASE_STORAGE_BUCKET`
+   - `FIREBASE_MESSAGING_SENDER_ID`
+   - `FIREBASE_APP_ID`
+   - `FIREBASE_MEASUREMENT_ID`
+4. After the service goes live (e.g., `https://lab-report-lagbe.onrender.com`), open Firebase Console -> **Authentication -> Settings -> Authorized domains** and add `<your-service>.onrender.com` so Google Sign-In works on the live domain.
+5. Note: Render free instances spin down after 15 minutes of inactivity (~50-60s cold start) and reset local container files (`output/`, `data/`), while Firestore profiles, drafts, and report metadata remain persisted.
+
+---
+
+## Cloud Deployment (Docker / PRO Spaces)
 
 1. Create a new Space on [Hugging Face Spaces](https://huggingface.co/spaces) with **Docker** as the SDK (CPU basic - 16 GB RAM free tier).
 2. Push this repository to your Space:
